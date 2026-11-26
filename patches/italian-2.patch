@@ -1,0 +1,958 @@
+--- a/Reloc/Core/Swift/RelocViewModel.swift
++++ b/Reloc/Core/Swift/RelocViewModel.swift
+@@ -89,9 +89,9 @@
+             pushLocationToSession()
+         }
+     }
+-    /// Candidate pin dropped on the map while a session is already active (allows browsing before tapping "更新到此位置").
++    /// Candidate pin dropped on the map while a session is already active (allows browsing before tapping "Aggiorna a questa posizione").
+     @Published public var pendingLocation: TargetLocation?
+-    @Published public var selectedPlaceName: String = "选中位置"
++    @Published public var selectedPlaceName: String = "Posizione selezionata"
+     @Published public var selectedPlaceAddress: String = ""
+ 
+     // MARK: - Favorites, Recents (30), & Recovery
+@@ -105,7 +105,7 @@
+     @Published public var connectionVerified = false
+     @Published public var isVerifyingConnection = false
+     @Published public var connectionCheckFailed = false
+-    @Published public var deviceConnectionStatus = "请先配对这台 iPhone"
++    @Published public var deviceConnectionStatus = "Abbinare prima questo iPhone"
+     @Published public var discoveredDevicePort: UInt16?
+ 
+     // MARK: - Session & Diagnostics
+@@ -167,8 +167,8 @@
+         self.savedPairing = pairing
+         self.pairingStatus = pairStat
+         self.deviceConnectionStatus = UIDevice.current.userInterfaceIdiom == .pad
+-            ? "不支持 iPad（仅支持 iPhone）"
+-            : (pairStat.isLoaded ? "配对记录已保存，等待连接验证" : "请先配对这台 iPhone")
++            ? "iPad non supportato (solo iPhone)"
++            : (pairStat.isLoaded ? "Record di abbinamento salvato, in attesa della verifica della connessione" : "Abbinare prima questo iPhone")
+ 
+         self.keepAlive.onDiagnostic = { [weak self] event, details in
+             guard let self else { return }
+@@ -289,7 +289,7 @@
+ 
+     public func selectWGSLocation(_ wgsLoc: TargetLocation, name: String? = nil, address: String? = nil) {
+         if snapshot.isRunning {
+-            // Keep active reported location unchanged until user taps "更新到此位置".
++            // Keep active reported location unchanged until user taps "Aggiorna a questa posizione".
+             pendingLocation = wgsLoc
+         } else {
+             pendingLocation = nil
+@@ -301,7 +301,7 @@
+             selectedPlaceAddress = address ?? String(format: "%.5f, %.5f", wgsLoc.latitude, wgsLoc.longitude)
+         } else {
+             selectedPlaceName = String(format: "%.5f, %.5f", wgsLoc.latitude, wgsLoc.longitude)
+-            selectedPlaceAddress = "正在解析地名…"
++            selectedPlaceAddress = "Analisi del nome del luogo…"
+             reverseGeocode(wgsLocation: wgsLoc)
+         }
+     }
+@@ -363,9 +363,9 @@
+             }
+             guard !Task.isCancelled, self.geocodeGeneration == gen else { return }
+ 
+-            // 4. Final fallback: never leave "正在解析地名…" stuck on screen.
++            // 4. Final fallback: never leave "Analisi del nome del luogo…" stuck on screen.
+             self.selectedPlaceName = coordText
+-            self.selectedPlaceAddress = "WGS-84 坐标"
++            self.selectedPlaceAddress = "Coordinate WGS-84"
+         }
+     }
+ 
+@@ -564,7 +564,7 @@
+     }
+ 
+     public static let unsupportedIPadMessage =
+-        "当前设备为 iPad。由于 iPadOS 不提供 CarPlay / CarKit（com.apple.carkit.service）外设定位服务，Reloc 仅支持 iPhone 使用。"
++        "Il dispositivo corrente è un iPad. Poiché iPadOS non fornisce il servizio di localizzazione da accessorio CarPlay / CarKit (com.apple.carkit.service), Reloc supporta solo iPhone."
+ 
+     // MARK: - Device Pairing & Loopback Verification
+ 
+@@ -576,7 +576,7 @@
+         connectionVerified = false
+         discoveredDevicePort = nil
+         connectionCheckFailed = false
+-        deviceConnectionStatus = pairingStatus.isLoaded ? "配对记录已保存，等待连接验证" : "请先配对这台 iPhone"
++        deviceConnectionStatus = pairingStatus.isLoaded ? "Record di abbinamento salvato, in attesa della verifica della connessione" : "Abbinare prima questo iPhone"
+     }
+ 
+     public func startDevicePairing() {
+@@ -618,7 +618,7 @@
+ 
+     public func testConnection(silent: Bool = false) {
+         if isUnsupportedIPad {
+-            deviceConnectionStatus = "不支持 iPad（仅支持 iPhone）"
++            deviceConnectionStatus = "iPad non supportato (solo iPhone)"
+             if !silent {
+                 alertMessage = Self.unsupportedIPadMessage
+             }
+@@ -626,7 +626,7 @@
+         }
+         guard !isVerifyingConnection, !snapshot.isRunning else { return }
+         guard let pairing = savedPairing else {
+-            deviceConnectionStatus = "请先配对这台 iPhone 或导入配对文件"
++            deviceConnectionStatus = "Abbinare prima questo iPhone o importare un file di abbinamento"
+             return
+         }
+ 
+@@ -637,7 +637,7 @@
+         isVerifyingConnection = true
+         connectionVerified = false
+         connectionCheckFailed = false
+-        deviceConnectionStatus = "正在发现服务并验证配对身份…"
++        deviceConnectionStatus = "Individuazione dei servizi e verifica dell'identità di abbinamento…"
+ 
+         Task {
+             defer { isVerifyingConnection = false }
+@@ -660,7 +660,7 @@
+                 }
+                 self.discoveredDevicePort = result.port
+                 self.connectionVerified = true
+-                self.deviceConnectionStatus = "设备身份与回环连接已验证"
++                self.deviceConnectionStatus = "Identità del dispositivo e connessione loopback verificate"
+                 self.events.append(ProtocolEvent(
+                     name: "connection_verified",
+                     detail: "{\"event\":\"connection_verified\",\"port\":\(result.port),\"service\":\"\(result.carkitService ?? "lockdown")\"}"
+@@ -690,11 +690,11 @@
+         }
+         guard !snapshot.isRunning else { return }
+         guard let pairing = savedPairing else {
+-            alertMessage = "请先在「设备连接」页面完成本机配对或导入配对文件，并确保外部代理已启用 10.7.0.1 回环映射。"
++            alertMessage = "Completare prima l'abbinamento locale o importare un file di abbinamento nella sezione «Connessione dispositivo», e assicurarsi che il proxy esterno abbia attivo il mapping di loopback 10.7.0.1."
+             return
+         }
+         guard let mfiSigner else {
+-            alertMessage = "内置配件认证组件不可用，请重新安装应用。"
++            alertMessage = "Componente integrato di autenticazione accessori non disponibile, reinstallare l'app."
+             return
+         }
+ 
+@@ -765,7 +765,7 @@
+                         self.injectionPhase = .idle
+                         if self.isLocationRefreshGuideActive {
+                             self.isLocationRefreshGuideActive = false
+-                            PairingPiPPresenter.shared.finishLocationRefresh(succeeded: false, message: "定位会话已停止")
++                            PairingPiPPresenter.shared.finishLocationRefresh(succeeded: false, message: "Sessione di localizzazione interrotta")
+                         }
+                     }
+                 }
+@@ -904,8 +904,8 @@
+                 refreshCountdownTask = nil
+                 PairingPiPPresenter.shared.updateLocationRefresh(
+                     step: 3,
+-                    headline: "③ 系统已重新打开定位服务",
+-                    subtitle: "正在极速锁定外设 GPS，请稍候 1–2 秒…"
++                    headline: "③ Servizi di localizzazione riattivati dal sistema",
++                    subtitle: "Aggancio rapido del GPS accessorio in corso, attendere 1–2 secondi…"
+                 )
+             }
+             return
+@@ -922,8 +922,8 @@
+             refreshCountdownTask = nil
+             PairingPiPPresenter.shared.updateLocationRefresh(
+                 step: 3,
+-                headline: "③ 正在重新获取本机真实定位…",
+-                subtitle: "已重新打开定位服务，请稍候 1–2 秒"
++                headline: "③ Riacquisizione della posizione reale del dispositivo in corso…",
++                subtitle: "Servizi di localizzazione riattivati, attendere 1–2 secondi"
+             )
+             coreLocation.requestAndStart()
+             coreLocation.pulseForAccessoryLock(requestSingleFix: true)
+@@ -941,8 +941,8 @@
+         PairingPiPPresenter.shared.startLocationRefreshGuide()
+         PairingPiPPresenter.shared.updateLocationRefresh(
+             step: 1,
+-            headline: "① 关闭系统「定位服务」",
+-            subtitle: "清空外设残留缓存，关闭后自动开始 5 秒倒计时"
++            headline: "① Disattivare i «Servizi di localizzazione» di sistema",
++            subtitle: "Svuota la cache residua dell'accessorio, dopo la chiusura parte automaticamente un conto alla rovescia di 5 secondi"
+         )
+         // Let PiP enter smoothly before switching apps to Settings (avoids transition stutter).
+         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+@@ -958,8 +958,8 @@
+                 guard !Task.isCancelled, let self, self.isRestoreRefreshGuideActive else { return }
+                 PairingPiPPresenter.shared.updateLocationRefresh(
+                     step: 2,
+-                    headline: "② 正在清空外设残留缓存",
+-                    subtitle: "请保持「定位服务」关闭，等待倒计时结束",
++                    headline: "② Svuotamento della cache residua dell'accessorio in corso",
++                    subtitle: "Tenere disattivati i «Servizi di localizzazione» e attendere la fine del conto alla rovescia",
+                     countdown: remaining
+                 )
+                 try? await Task.sleep(nanoseconds: 1_000_000_000)
+@@ -968,8 +968,8 @@
+             RelocTheme.hapticMedium()
+             PairingPiPPresenter.shared.updateLocationRefresh(
+                 step: 3,
+-                headline: "③ 请重新打开「定位服务」",
+-                subtitle: "打开开关后将立即切回本机真实 GPS",
++                headline: "③ Riattivare i «Servizi di localizzazione»",
++                subtitle: "Attivando l'interruttore si tornerà subito al GPS reale del dispositivo",
+                 countdown: 0
+             )
+         }
+@@ -1051,8 +1051,8 @@
+                 refreshCountdownTask = nil
+                 PairingPiPPresenter.shared.updateLocationRefresh(
+                     step: 3,
+-                    headline: "③ 系统已重新订阅外设 GPS",
+-                    subtitle: "正在极速锁定目标坐标，请稍候 1–2 秒…"
++                    headline: "③ Il sistema ha rinnovato la sottoscrizione del GPS accessorio",
++                    subtitle: "Aggancio rapido delle coordinate di destinazione in corso, attendere 1–2 secondi…"
+                 )
+             }
+             // Do not schedule CoreLocation pulses while the PiP refresh guide is active.
+@@ -1066,7 +1066,7 @@
+         session?.markCoreLocationConfirmed(false)
+         updateInjectionPhase()
+ 
+-        // Debounce 0xFFFC by 0.9s so transient app-switch hiccups never falsely flash "5 秒"
++        // Debounce 0xFFFC by 0.9s so transient app-switch hiccups never falsely flash "5 secondi"
+         // when the user hasn't actually turned off Location Services yet.
+         if isLocationRefreshGuideActive && !locationRefreshSawDisabled {
+             locationStopDebounceTask?.cancel()
+@@ -1150,8 +1150,8 @@
+                     refreshCountdownTask = nil
+                     PairingPiPPresenter.shared.finishLocationRefresh(
+                         succeeded: true,
+-                        message: "已切回本机真实 GPS，可返回任意 App 使用",
+-                        headline: "本机真实定位已恢复"
++                        message: "Tornato al GPS reale del dispositivo, si può usare qualsiasi app",
++                        headline: "Posizione reale del dispositivo ripristinata"
+                     )
+                 }
+                 Task { @MainActor [weak self] in
+@@ -1200,7 +1200,7 @@
+                     keepAlive.restoreAudioPreferenceAfterSettingsToggle()
+                     PairingPiPPresenter.shared.finishLocationRefresh(
+                         succeeded: true,
+-                        message: "已锁定「\(selectedPlaceName)」，可返回任意 App 使用"
++                        message: "Agganciato «\(selectedPlaceName)», si può usare qualsiasi app"
+                     )
+                 }
+             }
+@@ -1229,7 +1229,7 @@
+     public func launchOneTapLocationRefresh() {
+         guard snapshot.isRunning else { return }
+         // Cancel background pulse/watchdog tasks immediately so they never stop CLLocationManager
+-        // and falsely trigger a 0xFFFC "5 秒" flash before the user touches Location Services.
++        // and falsely trigger a 0xFFFC "5 secondi" flash before the user touches Location Services.
+         cancelTriggerTasks()
+         // Guarantee silent audio keep-alive is active before toggling Location Services OFF in Settings,
+         // otherwise iOS may suspend Reloc mid-countdown and drop the iAP2 tunnel.
+@@ -1270,8 +1270,8 @@
+                 guard !Task.isCancelled, let self, self.isLocationRefreshGuideActive else { return }
+                 PairingPiPPresenter.shared.updateLocationRefresh(
+                     step: 2,
+-                    headline: "② 正在清空系统定位缓存",
+-                    subtitle: "请保持「定位服务」关闭，等待倒计时结束",
++                    headline: "② Svuotamento della cache di localizzazione di sistema in corso",
++                    subtitle: "Tenere disattivati i «Servizi di localizzazione» e attendere la fine del conto alla rovescia",
+                     countdown: remaining
+                 )
+                 try? await Task.sleep(nanoseconds: 1_000_000_000)
+@@ -1280,8 +1280,8 @@
+             RelocTheme.hapticMedium()
+             PairingPiPPresenter.shared.updateLocationRefresh(
+                 step: 3,
+-                headline: "③ 请重新打开「定位服务」",
+-                subtitle: "打开开关后 Reloc 将自动 100% 锁定外设 GPS",
++                headline: "③ Riattivare i «Servizi di localizzazione»",
++                subtitle: "Attivando l'interruttore Reloc aggancerà automaticamente al 100% il GPS accessorio",
+                 countdown: 0
+             )
+         }
+@@ -1330,7 +1330,7 @@
+             events.append(ProtocolEvent(name: "pairing_imported", detail: "{\"event\":\"pairing_imported\"}"))
+             testConnection(silent: true)
+         } catch {
+-            alertMessage = "配对文件导入失败：\(error.localizedDescription)"
++            alertMessage = "Importazione del file di abbinamento non riuscita: \(error.localizedDescription)"
+         }
+     }
+ 
+--- a/Rust/RelocDeviceBridge/src/lib.rs
++++ b/Rust/RelocDeviceBridge/src/lib.rs
+@@ -75,12 +75,12 @@
+ 
+ fn parse_rp_record(record: *const u8, length: usize) -> Result<RpPairingFile, String> {
+     if record.is_null() || length == 0 || length > 2_000_000 {
+-        return Err("配对数据为空或体积异常".into());
++        return Err("Dati di abbinamento vuoti o di dimensione anomala".into());
+     }
+     let bytes = unsafe { std::slice::from_raw_parts(record, length) };
+-    let parsed = RpPairingFile::from_bytes(bytes).map_err(|_| "配对身份格式无效".to_string())?;
++    let parsed = RpPairingFile::from_bytes(bytes).map_err(|_| "Formato dell'identità di abbinamento non valido".to_string())?;
+     if parsed.e_private_key.verifying_key() != parsed.e_public_key {
+-        return Err("配对身份公私钥不匹配".into());
++        return Err("Chiavi pubblica e privata dell'identità di abbinamento non corrispondenti".into());
+     }
+     Ok(parsed)
+ }
+@@ -99,43 +99,43 @@
+ > {
+     let stream = TcpStream::connect((host_ip, port))
+         .await
+-        .map_err(|e| format!("无法连接回环地址 {host_ip}:{port}（请确认外部代理已开启 10.7.0.1 回环）：{e}"))?;
++        .map_err(|e| format!("Impossibile connettersi all'indirizzo di loopback {host_ip}:{port} (verificare che il proxy esterno abbia attivo il loopback 10.7.0.1): {e}"))?;
+     let _ = stream.set_nodelay(true);
+ 
+     let mut client = RemotePairingClient::new(RpPairingSocket::new(stream), "Reloc");
+     client
+         .attempt_pair_verify()
+         .await
+-        .map_err(|e| format!("Remote Pairing 身份验证失败：{e}"))?;
++        .map_err(|e| format!("Autenticazione Remote Pairing non riuscita: {e}"))?;
+     client
+         .validate_pairing(&mut record)
+         .await
+-        .map_err(|e| format!("配对记录校验未通过，请重新配对这台 iPhone：{e}"))?;
++        .map_err(|e| format!("Verifica del record di abbinamento non superata, riabbinare questo iPhone: {e}"))?;
+ 
+     let tunnel_port = client
+         .create_tcp_listener()
+         .await
+-        .map_err(|e| format!("无法创建设备加密隧道：{e}"))?;
++        .map_err(|e| format!("Impossibile creare il tunnel crittografato del dispositivo: {e}"))?;
+     let key = client.encryption_key().to_vec();
+ 
+     let tunnel_tcp = TcpStream::connect((host_ip, tunnel_port))
+         .await
+-        .map_err(|e| format!("无法连接设备隧道端口 {tunnel_port}：{e}"))?;
++        .map_err(|e| format!("Impossibile connettersi alla porta del tunnel del dispositivo {tunnel_port}: {e}"))?;
+     let _ = tunnel_tcp.set_nodelay(true);
+     let cd = connect_tls_psk_tunnel_native(tunnel_tcp, &key)
+         .await
+-        .map_err(|e| format!("TLS-PSK 隧道握手失败：{e}"))?;
++        .map_err(|e| format!("Handshake del tunnel TLS-PSK non riuscito: {e}"))?;
+ 
+     let our_ip: IpAddr = cd
+         .info
+         .client_address
+         .parse()
+-        .map_err(|_| "隧道本地 IPv6 地址无效".to_string())?;
++        .map_err(|_| "Indirizzo IPv6 locale del tunnel non valido".to_string())?;
+     let their_ip: IpAddr = cd
+         .info
+         .server_address
+         .parse()
+-        .map_err(|_| "隧道设备 IPv6 地址无效".to_string())?;
++        .map_err(|_| "Indirizzo IPv6 del dispositivo del tunnel non valido".to_string())?;
+     let rsd_port = cd.info.server_rsd_port;
+     let mtu = cd.info.mtu as usize;
+ 
+@@ -146,10 +146,10 @@
+     let rsd_stream = handle
+         .connect(rsd_port)
+         .await
+-        .map_err(|e| format!("无法连接 RSD 服务发现端口 {rsd_port}：{e}"))?;
++        .map_err(|e| format!("Impossibile connettersi alla porta di service discovery RSD {rsd_port}: {e}"))?;
+     let rsd = RsdHandshake::new(rsd_stream)
+         .await
+-        .map_err(|e| format!("RSD 服务发现握手失败：{e}"))?;
++        .map_err(|e| format!("Handshake di service discovery RSD non riuscito: {e}"))?;
+ 
+     Ok((client, handle, rsd))
+ }
+@@ -159,20 +159,20 @@
+     value: &plist::Value,
+ ) -> Result<(), String> {
+     let mut xml = Vec::new();
+-    plist::to_writer_xml(&mut xml, value).map_err(|e| format!("序列化 plist 失败：{e}"))?;
++    plist::to_writer_xml(&mut xml, value).map_err(|e| format!("Serializzazione plist non riuscita: {e}"))?;
+     let len = (xml.len() as u32).to_be_bytes();
+     stream
+         .write_all(&len)
+         .await
+-        .map_err(|e| format!("写入 RSDCheckin 长度失败：{e}"))?;
++        .map_err(|e| format!("Scrittura della lunghezza RSDCheckin non riuscita: {e}"))?;
+     stream
+         .write_all(&xml)
+         .await
+-        .map_err(|e| format!("写入 RSDCheckin 数据失败：{e}"))?;
++        .map_err(|e| format!("Scrittura dei dati RSDCheckin non riuscita: {e}"))?;
+     stream
+         .flush()
+         .await
+-        .map_err(|e| format!("刷新 RSDCheckin 失败：{e}"))?;
++        .map_err(|e| format!("Aggiornamento di RSDCheckin non riuscito: {e}"))?;
+     Ok(())
+ }
+ 
+@@ -181,17 +181,17 @@
+     stream
+         .read_exact(&mut len_buf)
+         .await
+-        .map_err(|e| format!("读取 RSDCheckin 响应长度失败：{e}"))?;
++        .map_err(|e| format!("Lettura della lunghezza della risposta RSDCheckin non riuscita: {e}"))?;
+     let len = u32::from_be_bytes(len_buf) as usize;
+     if len == 0 || len > 4 * 1024 * 1024 {
+-        return Err(format!("RSDCheckin 响应长度异常：{len}"));
++        return Err(format!("Lunghezza della risposta RSDCheckin anomala: {len}"));
+     }
+     let mut body = vec![0u8; len];
+     stream
+         .read_exact(&mut body)
+         .await
+-        .map_err(|e| format!("读取 RSDCheckin 响应体失败：{e}"))?;
+-    plist::from_bytes(&body).map_err(|e| format!("解析 RSDCheckin 响应失败：{e}"))
++        .map_err(|e| format!("Lettura del corpo della risposta RSDCheckin non riuscita: {e}"))?;
++    plist::from_bytes(&body).map_err(|e| format!("Analisi della risposta RSDCheckin non riuscita: {e}"))
+ }
+ 
+ async fn perform_rsd_checkin<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S) -> Result<(), String> {
+@@ -203,11 +203,11 @@
+ 
+     let first = recv_framed_plist(stream).await?;
+     if first.get("Request").and_then(|v| v.as_string()) != Some("RSDCheckin") {
+-        return Err("RSDCheckin 握手回复异常".into());
++        return Err("Risposta dell'handshake RSDCheckin anomala".into());
+     }
+     let second = recv_framed_plist(stream).await?;
+     if second.get("Request").and_then(|v| v.as_string()) != Some("StartService") {
+-        return Err("RSD StartService 握手回复异常".into());
++        return Err("Risposta dell'handshake RSD StartService anomala".into());
+     }
+     Ok(())
+ }
+@@ -217,21 +217,21 @@
+         Some(text) => {
+             let bytes = BASE64_STANDARD
+                 .decode(text)
+-                .map_err(|_| "无法读取已保存的配对身份".to_string())?;
++                .map_err(|_| "Impossibile leggere l'identità di abbinamento salvata".to_string())?;
+             RpPairingFile::from_bytes(&bytes)
+-                .map_err(|_| "已保存的配对身份无效，请重新导入".to_string())?
++                .map_err(|_| "Identità di abbinamento salvata non valida, reimportarla".to_string())?
+         }
+         None => {
+             let nonce = std::time::SystemTime::now()
+                 .duration_since(std::time::UNIX_EPOCH)
+-                .map_err(|_| "系统时间无效".to_string())?
++                .map_err(|_| "Ora di sistema non valida".to_string())?
+                 .as_nanos();
+             RpPairingFile::generate(&format!("Reloc-{nonce}"))
+         }
+     };
+ 
+     if record.e_private_key.verifying_key() != record.e_public_key {
+-        return Err("配对身份的公私钥不匹配".into());
++        return Err("Chiavi pubblica e privata dell'identità di abbinamento non corrispondenti".into());
+     }
+     record.alt_irk = None;
+ 
+@@ -250,7 +250,7 @@
+ 
+     let listener = TcpListener::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))
+         .await
+-        .map_err(|e| format!("无法启动配对监听：{e}"))?;
++        .map_err(|e| format!("Impossibile avviare l'ascolto di abbinamento: {e}"))?;
+     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+     let txt: HashMap<String, String> = info
+         .mdns_txt_records(record.identifier())
+@@ -266,7 +266,7 @@
+     let (stream, _) = listener
+         .accept()
+         .await
+-        .map_err(|e| format!("配对连接未建立：{e}"))?;
++        .map_err(|e| format!("Connessione di abbinamento non stabilita: {e}"))?;
+     events.send(json!({"type": "connected"}));
+ 
+     let mut host = PairableHost::new(RpPairingSocket::new_device(stream), info);
+@@ -275,7 +275,7 @@
+             events.send(json!({"type": "pin", "pin": pin}));
+         })
+         .await
+-        .map_err(|e| format!("设备配对未完成：{e}"))?;
++        .map_err(|e| format!("Abbinamento del dispositivo non completato: {e}"))?;
+ 
+     // Keep responder alive briefly while Settings commits the trusted host.
+     tokio::time::sleep(Duration::from_millis(800)).await;
+@@ -330,8 +330,8 @@
+             ) => match value {
+                 Ok(Ok(Ok(value))) => value,
+                 Ok(Ok(Err(error))) => json!({"type": "failed", "error": error}),
+-                Ok(Err(_)) => json!({"type": "failed", "error": "配对引擎已结束，请重试"}),
+-                Err(_) => json!({"type": "failed", "error": "配对等待超时，请返回 Reloc 重试"}),
++                Ok(Err(_)) => json!({"type": "failed", "error": "Motore di abbinamento terminato, riprovare"}),
++                Err(_) => json!({"type": "failed", "error": "Timeout di attesa dell'abbinamento, tornare a Reloc e riprovare"}),
+             }
+         };
+         pairing_sessions()
+@@ -384,7 +384,7 @@
+     port: u16,
+ ) -> *mut c_char {
+     if host_ip.is_null() || port == 0 {
+-        return to_c_json(json!({"ok": false, "error": "设备连接参数无效"}));
++        return to_c_json(json!({"ok": false, "error": "Parametri di connessione del dispositivo non validi"}));
+     }
+     let parsed = match parse_rp_record(record, length) {
+         Ok(r) => r,
+@@ -396,7 +396,7 @@
+         .and_then(|s| s.parse().ok())
+     {
+         Some(ip) => ip,
+-        None => return to_c_json(json!({"ok": false, "error": "回环 IP 地址无效"})),
++        None => return to_c_json(json!({"ok": false, "error": "Indirizzo IP di loopback non valido"})),
+     };
+ 
+     let res = runtime().block_on(async move {
+@@ -433,11 +433,11 @@
+                 }))
+             }))
+             .await
+-            .map_err(|_| "设备连接验证超时（请检查 10.7.0.1 回环代理是否已开启）".to_string())?
++            .map_err(|_| "Timeout della verifica della connessione del dispositivo (controllare che il proxy di loopback 10.7.0.1 sia attivo)".to_string())?
+         });
+         match join.await {
+             Ok(inner) => inner,
+-            Err(_) => Err("设备连接验证任务异常中止".to_string()),
++            Err(_) => Err("Attività di verifica della connessione del dispositivo interrotta in modo anomalo".to_string()),
+         }
+     });
+ 
+@@ -456,7 +456,7 @@
+     preferred_service: *const c_char,
+ ) -> *mut c_char {
+     if host_ip.is_null() || port == 0 {
+-        return to_c_json(json!({"ok": false, "error": "设备连接参数无效"}));
++        return to_c_json(json!({"ok": false, "error": "Parametri di connessione del dispositivo non validi"}));
+     }
+     let parsed = match parse_rp_record(record, length) {
+         Ok(r) => r,
+@@ -468,7 +468,7 @@
+         .and_then(|s| s.parse().ok())
+     {
+         Some(ip) => ip,
+-        None => return to_c_json(json!({"ok": false, "error": "回环 IP 地址无效"})),
++        None => return to_c_json(json!({"ok": false, "error": "Indirizzo IP di loopback non valido"})),
+     };
+     let preferred = if preferred_service.is_null() {
+         "com.apple.carkit.service".to_string()
+@@ -508,7 +508,7 @@
+                     // Fallback: ask RSD lockdownd to start the service.
+                     let mut ld = LockdownClient::connect_rsd(&mut handle, &mut rsd)
+                         .await
+-                        .map_err(|e| format!("无法连接 RSD lockdownd：{e}"))?;
++                        .map_err(|e| format!("Impossibile connettersi a RSD lockdownd: {e}"))?;
+                     let target = if preferred.is_empty() {
+                         "com.apple.carkit.service"
+                     } else {
+@@ -517,24 +517,24 @@
+                     let (svc_port, _ssl) = ld
+                         .start_service(target)
+                         .await
+-                        .map_err(|e| format!("无法启动服务 {target}：{e}"))?;
++                        .map_err(|e| format!("Impossibile avviare il servizio {target}: {e}"))?;
+                     (target.to_string(), svc_port, false)
+                 };
+ 
+                 let mut remote_stream = handle
+                     .connect(service_port)
+                     .await
+-                    .map_err(|e| format!("无法连接服务 {service_name} (端口 {service_port})：{e}"))?;
++                    .map_err(|e| format!("Impossibile connettersi al servizio {service_name} (porta {service_port}): {e}"))?;
+ 
+                 if needs_checkin {
+                     perform_rsd_checkin(&mut remote_stream).await?;
+                 }
+ 
+                 let (client_unix, mut bridge_unix) =
+-                    UnixStream::pair().map_err(|e| format!("创建本地桥接通道失败：{e}"))?;
++                    UnixStream::pair().map_err(|e| format!("Creazione del canale di bridge locale non riuscita: {e}"))?;
+                 let std_client = client_unix
+                     .into_std()
+-                    .map_err(|e| format!("转换桥接句柄失败：{e}"))?;
++                    .map_err(|e| format!("Conversione dell'handle del bridge non riuscita: {e}"))?;
+                 let raw_fd = std_client.into_raw_fd();
+ 
+                 static NEXT_TUNNEL: AtomicU64 = AtomicU64::new(1);
+@@ -569,11 +569,11 @@
+                 }))
+             }))
+             .await
+-            .map_err(|_| "打开设备服务连接超时".to_string())?
++            .map_err(|_| "Timeout dell'apertura della connessione ai servizi dispositivo".to_string())?
+         });
+         match join.await {
+             Ok(inner) => inner,
+-            Err(_) => Err("打开设备服务任务异常中止".to_string()),
++            Err(_) => Err("Attività di apertura dei servizi dispositivo interrotta in modo anomalo".to_string()),
+         }
+     });
+ 
+--- a/Reloc/Core/Swift/DevicePairingCoordinator.swift
++++ b/Reloc/Core/Swift/DevicePairingCoordinator.swift
+@@ -33,7 +33,7 @@
+ 
+     @Published private(set) var isRunning = false
+     @Published private(set) var stepIndex = 0 // 0=idle, 1=broadcasting, 2=connected/pin, 3=completed
+-    @Published private(set) var status = "尚未开始设备配对"
++    @Published private(set) var status = "Abbinamento del dispositivo non ancora avviato"
+     @Published private(set) var pin: String?
+     @Published private(set) var error: String?
+ 
+@@ -49,12 +49,12 @@
+     func start(existingRequest: [String: String] = [:], onSaveRecord: @escaping (Data, Data, String) throws -> Void) {
+         guard !isRunning else { return }
+         #if targetEnvironment(simulator)
+-        error = "设备端配对需要 iOS 27 或更新版本的真实 iPhone。"
++        error = "L'abbinamento lato dispositivo richiede un iPhone reale con iOS 27 o successivo."
+         status = error ?? ""
+         return
+         #else
+         guard #available(iOS 27.0, *) else {
+-            error = "当前系统请导入已有的配对文件；设备端直接配对需要 iOS 27。"
++            error = "Con questo sistema importare un file di abbinamento esistente; l'abbinamento diretto lato dispositivo richiede iOS 27."
+             status = error ?? ""
+             return
+         }
+@@ -67,7 +67,7 @@
+         pin = nil
+         error = nil
+         cancelReason = nil
+-        status = "正在准备本机配对服务…"
++        status = "Preparazione del servizio di abbinamento locale…"
+ 
+         let deadline = Date().addingTimeInterval(300)
+         keepAlive.start(useSilentAudio: true)
+@@ -77,14 +77,14 @@
+             let json = String(decoding: try JSONSerialization.data(withJSONObject: existingRequest), as: UTF8.self)
+             background = UIApplication.shared.beginBackgroundTask(withName: "Reloc Device Pairing") { [weak self] in
+                 Task { @MainActor in
+-                    self?.cancel(reason: "系统结束了后台配对时间，请返回 Reloc 重试。")
++                    self?.cancel(reason: "Il sistema ha terminato il tempo di abbinamento in background, tornare a Reloc e riprovare.")
+                 }
+             }
+             let context = Unmanaged.passRetained(DevicePairingContext(owner: self, session: id)).toOpaque()
+             handle = json.withCString { rl_device_pairing_start($0, devicePairingEventCallback, context) }
+             if handle == 0 {
+                 Unmanaged<DevicePairingContext>.fromOpaque(context).release()
+-                finish(error: "无法启动设备配对服务。")
++                finish(error: "Impossibile avviare il servizio di abbinamento del dispositivo.")
+             }
+         } catch {
+             finish(error: error.localizedDescription)
+@@ -115,7 +115,7 @@
+                   let port = event["port"] as? Int,
+                   (1...65535).contains(port),
+                   let txt = event["txt"] as? [String: String] else {
+-                cancel(reason: "配对服务返回了无效的广播参数。")
++                cancel(reason: "Il servizio di abbinamento ha restituito parametri di broadcast non validi.")
+                 return
+             }
+             let netService = NetService(
+@@ -129,32 +129,32 @@
+             self.service = netService
+             netService.publish()
+             stepIndex = 1
+-            status = "请前往「设置 → 隐私与安全性 → 开发者模式」，在底部选择「与 Reloc 配对」。"
++            status = "Andare in «Impostazioni → Privacy e sicurezza → Modalità sviluppatore» e selezionare in fondo «Abbina con Reloc»."
+             pip.update(
+                 step: 1,
+-                headline: "① 设置 → 隐私与安全性 → 开发者模式",
+-                subtitle: "滑到底部点击「与 Reloc 配对」，配对码将显示在此处"
++                headline: "① Impostazioni → Privacy e sicurezza → Modalità sviluppatore",
++                subtitle: "Scorrere in fondo e toccare «Abbina con Reloc», il codice di abbinamento verrà mostrato qui"
+             )
+ 
+         case "connected":
+             stepIndex = 2
+-            status = "系统已连接，正在生成配对码…"
++            status = "Sistema connesso, generazione del codice di abbinamento…"
+             pip.update(
+                 step: 2,
+-                headline: "② 系统已连接",
+-                subtitle: "正在协商安全通道并生成 6 位配对码…"
++                headline: "② Sistema connesso",
++                subtitle: "Negoziazione del canale sicuro e generazione del codice di abbinamento a 6 cifre…"
+             )
+ 
+         case "pin":
+             guard let pin = event["pin"] as? String else { return }
+             self.pin = pin
+             stepIndex = 2
+-            status = "请在系统设置中输入以下 6 位配对码。"
++            status = "Inserire il seguente codice di abbinamento a 6 cifre nelle impostazioni di sistema."
+             UINotificationFeedbackGenerator().notificationOccurred(.success)
+             pip.update(
+                 step: 2,
+-                headline: "请输入配对码",
+-                subtitle: "请在系统设置弹窗中输入 6 位配对码",
++                headline: "Inserire il codice di abbinamento",
++                subtitle: "Inserire il codice di abbinamento a 6 cifre nella finestra di dialogo delle impostazioni di sistema",
+                 pin: pin
+             )
+ 
+@@ -164,7 +164,7 @@
+                   let irk = (event["host_irk"] as? String).flatMap({ Data(base64Encoded: $0) }),
+                   irk.count == 16,
+                   let save = onSaveRecord else {
+-                finish(error: "系统未返回完整的配对记录。")
++                finish(error: "Il sistema non ha restituito un record di abbinamento completo.")
+                 return
+             }
+             let udid = event["udid"] as? String ?? ""
+@@ -173,13 +173,13 @@
+                 stepIndex = 3
+                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+                 finish(error: nil, succeeded: true)
+-                status = "配对记录已自动保存"
++                status = "Record di abbinamento salvato automaticamente"
+             } catch {
+                 finish(error: error.localizedDescription)
+             }
+ 
+         case "failed":
+-            finish(error: event["error"] as? String ?? "设备配对未完成。")
++            finish(error: event["error"] as? String ?? "Abbinamento del dispositivo non completato.")
+ 
+         case "cancelled":
+             finish(error: cancelReason)
+@@ -191,7 +191,7 @@
+ 
+     private func finish(error: String?, succeeded: Bool = false) {
+         self.error = error
+-        status = error ?? (succeeded ? "配对记录已自动保存" : "配对已结束")
++        status = error ?? (succeeded ? "Record di abbinamento salvato automaticamente" : "Abbinamento concluso")
+         isRunning = false
+         stepIndex = succeeded ? 3 : 0
+         pin = nil
+@@ -206,13 +206,13 @@
+             background = .invalid
+         }
+         keepAlive.stop(deactivateAudioSession: false)
+-        let finalMessage = error ?? (succeeded ? "配对完成，可返回 Reloc 开始定位" : "配对已结束")
++        let finalMessage = error ?? (succeeded ? "Abbinamento completato, tornare a Reloc per avviare la localizzazione" : "Abbinamento concluso")
+         pip.finish(succeeded: succeeded, message: finalMessage)
+     }
+ 
+     func netService(_ sender: NetService, didNotPublish errorDict: [String: NSNumber]) {
+         guard sender === service else { return }
+         let code = errorDict[NetService.errorCode]?.intValue ?? 0
+-        cancel(reason: "无法发布配对服务（错误码 \(code)），请在系统「设置 → 隐私与安全性 → 本地网络 / 區域網路」中允许 Reloc 访问后重试。")
++        cancel(reason: "Impossibile pubblicare il servizio di abbinamento (codice errore \(code)), consentire l'accesso a Reloc in «Impostazioni → Privacy e sicurezza → Rete locale» e riprovare.")
+     }
+ }
+--- a/Reloc/Core/Swift/AccessoryLocationSession.swift
++++ b/Reloc/Core/Swift/AccessoryLocationSession.swift
+@@ -243,7 +243,7 @@
+                         }
+                     }
+                     guard let ptr else {
+-                        continuation.resume(throwing: ConnectionCheckError.message("设备连接验证无返回结果"))
++                        continuation.resume(throwing: ConnectionCheckError.message("La verifica della connessione del dispositivo non ha restituito risultati"))
+                         return
+                     }
+                     defer { rl_string_free(ptr) }
+@@ -254,7 +254,7 @@
+                         let carkit = obj["carkit_service"] as? String
+                         continuation.resume(returning: ConnectionCheckResult(udid: udid, port: port, carkitService: carkit))
+                     } else {
+-                        let err = obj["error"] as? String ?? "设备连接验证失败"
++                        let err = obj["error"] as? String ?? "Verifica della connessione del dispositivo non riuscita"
+                         continuation.resume(throwing: ConnectionCheckError.message(err))
+                     }
+                 }
+@@ -456,10 +456,10 @@
+     }
+ 
+     private static func isFatalPairingError(_ message: String) -> Bool {
+-        message.contains("配对记录校验未通过")
+-            || message.contains("公私钥不匹配")
+-            || message.contains("配对身份格式无效")
+-            || message.contains("配对数据为空")
++        message.contains("Verifica del record di abbinamento non superata")
++            || message.contains("Chiave pubblica e privata non corrispondono")
++            || message.contains("Formato dell'identità di abbinamento non valido")
++            || message.contains("Dati di abbinamento vuoti")
+     }
+ 
+     private func runOverRemotePairing(
+@@ -518,7 +518,7 @@
+             }
+ 
+             guard let ptr else {
+-                let err = "无法通过 Remote Pairing 建立设备服务通道"
++                let err = "Impossibile stabilire il canale dei servizi dispositivo tramite Remote Pairing"
+                 if configuration.mode != .send || isCancelled() {
+                     if !isCancelled() {
+                         snapshot.lastError = err
+@@ -534,7 +534,7 @@
+                 snapshot.authenticated = false
+                 snapshot.activeSentences = []
+                 snapshot.packetsAcknowledged = cumulativePackets
+-                snapshot.lastError = "通道建立失败，\(String(format: "%.1f", delay)) 秒后自动重连（第 \(reconnectAttempt) 次）"
++                snapshot.lastError = "Creazione del canale non riuscita, \(String(format: "%.1f", delay)) secondi alla riconnessione automatica (tentativo \(reconnectAttempt))"
+                 onSnapshot(snapshot)
+                 emitEvent("reconnecting", details: ["attempt": reconnectAttempt, "delay_s": delay, "reason": err], isError: true)
+                 sleepCancellable(delay, deadline: overallDeadline)
+@@ -548,7 +548,7 @@
+             guard obj["ok"] as? Bool == true,
+                   let fdNum = obj["fd"] as? Int,
+                   let handleNum = obj["handle"] as? UInt64 else {
+-                let err = obj["error"] as? String ?? "打开 Remote Pairing 服务失败"
++                let err = obj["error"] as? String ?? "Attivazione del servizio Remote Pairing non riuscita"
+                 if configuration.mode != .send || isCancelled() || Self.isFatalPairingError(err) {
+                     if !isCancelled() {
+                         snapshot.lastError = err
+@@ -565,7 +565,7 @@
+                 snapshot.authenticated = false
+                 snapshot.activeSentences = []
+                 snapshot.packetsAcknowledged = cumulativePackets
+-                snapshot.lastError = "隧道中断，\(String(format: "%.1f", delay)) 秒后自动重连（第 \(reconnectAttempt) 次）"
++                snapshot.lastError = "Tunnel interrotto, \(String(format: "%.1f", delay)) secondi alla riconnessione automatica (tentativo \(reconnectAttempt))"
+                 onSnapshot(snapshot)
+                 emitEvent("reconnecting", details: ["attempt": reconnectAttempt, "delay_s": delay, "reason": err], isError: true)
+                 sleepCancellable(delay, deadline: overallDeadline)
+@@ -669,7 +669,7 @@
+                 snapshot.isRunning = true
+                 snapshot.mode = configuration.mode
+                 snapshot.packetsAcknowledged = cumulativePackets
+-                snapshot.lastError = "连接断开，\(String(format: "%.1f", delay)) 秒后自动重连（第 \(reconnectAttempt) 次）"
++                snapshot.lastError = "Connessione interrotta, \(String(format: "%.1f", delay)) secondi alla riconnessione automatica (tentativo \(reconnectAttempt))"
+                 onSnapshot(snapshot)
+                 emitEvent("reconnecting", details: ["attempt": reconnectAttempt, "delay_s": delay, "reason": err], isError: true)
+                 sleepCancellable(delay, deadline: overallDeadline)
+@@ -798,7 +798,7 @@
+                     snapshot.isRunning = true
+                     snapshot.mode = configuration.mode
+                     snapshot.packetsAcknowledged = cumulativePackets
+-                    snapshot.lastError = "连接断开，\(String(format: "%.1f", delay)) 秒后自动重连（第 \(reconnectAttempt) 次）"
++                    snapshot.lastError = "Connessione interrotta, \(String(format: "%.1f", delay)) secondi alla riconnessione automatica (tentativo \(reconnectAttempt))"
+                     onSnapshot(snapshot)
+                     emitEvent("reconnecting", details: ["attempt": reconnectAttempt, "delay_s": delay, "reason": err], isError: true)
+                     sleepCancellable(delay, deadline: overallDeadline)
+@@ -823,7 +823,7 @@
+                 snapshot.isRunning = true
+                 snapshot.mode = configuration.mode
+                 snapshot.packetsAcknowledged = cumulativePackets
+-                snapshot.lastError = "Lockdown 中断，\(String(format: "%.1f", delay)) 秒后自动重连（第 \(reconnectAttempt) 次）"
++                snapshot.lastError = "Lockdown interrotto, \(String(format: "%.1f", delay)) secondi alla riconnessione automatica (tentativo \(reconnectAttempt))"
+                 onSnapshot(snapshot)
+                 emitEvent("reconnecting", details: ["attempt": reconnectAttempt, "delay_s": delay, "reason": message], isError: true)
+                 sleepCancellable(delay, deadline: overallDeadline)
+--- a/Reloc/Core/Swift/CredentialStore.swift
++++ b/Reloc/Core/Swift/CredentialStore.swift
+@@ -12,9 +12,9 @@
+ 
+     public var title: String {
+         switch self {
+-        case .system: return "跟随系统"
+-        case .light: return "浅色"
+-        case .dark: return "深色"
++        case .system: return "Segui il sistema"
++        case .light: return "Chiaro"
++        case .dark: return "Scuro"
+         }
+     }
+ 
+@@ -37,19 +37,19 @@
+ 
+     public var title: String {
+         switch self {
+-        case .appleNative: return "Apple 地图（系统默认）"
+-        case .globalStreet: return "全球街道图（Esri · WGS-84）"
+-        case .globalOSM: return "OpenStreetMap（开源 · WGS-84）"
+-        case .globalSatellite: return "全球卫星图（Esri · WGS-84）"
++        case .appleNative: return "Apple Mappe (predefinita di sistema)"
++        case .globalStreet: return "Strade globali (Esri · WGS-84)"
++        case .globalOSM: return "OpenStreetMap (open source · WGS-84)"
++        case .globalSatellite: return "Satellite globale (Esri · WGS-84)"
+         }
+     }
+ 
+     public var shortTitle: String {
+         switch self {
+-        case .appleNative: return "Apple 地图"
+-        case .globalStreet: return "全球街道"
+-        case .globalOSM: return "OSM 地图"
+-        case .globalSatellite: return "全球卫星"
++        case .appleNative: return "Apple Mappe"
++        case .globalStreet: return "Strade globali"
++        case .globalOSM: return "Mappa OSM"
++        case .globalSatellite: return "Satellite globale"
+         }
+     }
+ 
+@@ -68,9 +68,9 @@
+ 
+     public var title: String {
+         switch self {
+-        case .standard: return "标准"
+-        case .satellite: return "卫星"
+-        case .hybrid: return "混合"
++        case .standard: return "Standard"
++        case .satellite: return "Satellite"
++        case .hybrid: return "Ibrida"
+         }
+     }
+ }
+@@ -181,7 +181,7 @@
+     public var errorDescription: String? {
+         switch self {
+         case .oversized:
+-            return "配对文件体积异常。"
++            return "Dimensione del file di abbinamento anomala."
+         case .invalidFormat(let detail):
+             return detail
+         }
+@@ -351,8 +351,8 @@
+               let decoded = try? JSONDecoder().decode([FavoriteLocation].self, from: data) else {
+             return [
+                 FavoriteLocation(name: "Apple Park", subtitle: "Cupertino, CA", latitude: 37.334606, longitude: -122.009102, altitude: 20.0),
+-                FavoriteLocation(name: "东京站", subtitle: "日本东京都千代田区", latitude: 35.681236, longitude: 139.767125, altitude: 10.0),
+-                FavoriteLocation(name: "台北 101", subtitle: "台北市信义区", latitude: 25.033964, longitude: 121.564468, altitude: 12.0),
++                FavoriteLocation(name: "Stazione di Tokyo", subtitle: "Chiyoda, Tokyo, Giappone", latitude: 35.681236, longitude: 139.767125, altitude: 10.0),
++                FavoriteLocation(name: "Taipei 101", subtitle: "Distretto Xinyi, Taipei", latitude: 25.033964, longitude: 121.564468, altitude: 12.0),
+             ]
+         }
+         return decoded
+@@ -401,7 +401,7 @@
+             throw PairingImportError.oversized
+         }
+         guard let dict = try PropertyListSerialization.propertyList(from: raw, format: nil) as? [String: Any] else {
+-            throw PairingImportError.invalidFormat("配对文件必须是有效的 plist 格式。")
++            throw PairingImportError.invalidFormat("Il file di abbinamento deve essere in formato plist valido.")
+         }
+         let xml = try PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0)
+ 
+@@ -411,7 +411,7 @@
+            !identifier.isEmpty {
+             guard let key = try? Curve25519.Signing.PrivateKey(rawRepresentation: privateKey),
+                   key.publicKey.rawRepresentation == publicKey else {
+-                throw PairingImportError.invalidFormat("Remote Pairing 配对文件中的 Ed25519 公私钥不匹配。")
++                throw PairingImportError.invalidFormat("Le chiavi Ed25519 pubblica e privata nel file di abbinamento Remote Pairing non corrispondono.")
+             }
+             return (xml, .remotePairing(data: xml, identifier: identifier))
+         }
+@@ -426,7 +426,7 @@
+         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+ 
+         if url.hasDirectoryPath || ((try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true) {
+-            throw PairingImportError.invalidFormat("请选择具体的配对文件，而不是文件夹。")
++            throw PairingImportError.invalidFormat("Selezionare un file di abbinamento specifico, non una cartella.")
+         }
+ 
+         let data: Data
+@@ -473,7 +473,7 @@
+             try? target.setResourceValues(values)
+             return
+         }
+-        throw PairingImportError.invalidFormat("无法写入系统钥匙串（OSStatus \(status)）。")
++        throw PairingImportError.invalidFormat("Impossibile scrivere nel portachiavi di sistema (OSStatus \(status)).")
+     }
+ 
+     private func writePairingToKeychain(_ data: Data) -> OSStatus {
+@@ -515,7 +515,7 @@
+     @discardableResult
+     public func saveOnDevicePairedIdentity(_ rawRecord: Data, hostIRK: Data, udid: String) throws -> SavedPairing {
+         guard hostIRK.count == 16 else {
+-            throw PairingImportError.invalidFormat("配对主机身份无效。")
++            throw PairingImportError.invalidFormat("Identità host di abbinamento non valida.")
+         }
+         var dict = (try PropertyListSerialization.propertyList(from: rawRecord, format: nil) as? [String: Any]) ?? [:]
+         dict["reloc_host_irk"] = hostIRK

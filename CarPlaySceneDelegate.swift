@@ -80,6 +80,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
         print(window.canBecomeKey)
         window.makeKeyAndVisible()
 //        self.interfaceController?.presentTemplate(self.mapTemplate!, animated: true)
+        FMLABCarMonitor.shared.setCarPlayScene(connected: true, screenSize: window.bounds.size)
         loadIOS()
         //        print(self.window?.screen)
 //        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: {
@@ -121,6 +122,13 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
     
     
     
+    // FMLAB: CarPlay scollegato -> fine viaggio (la modalità passeggero si spegne)
+    func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene,
+                                  didDisconnect interfaceController: CPInterfaceController,
+                                  from window: CPWindow) {
+        FMLABCarMonitor.shared.setCarPlayScene(connected: false, screenSize: .zero)
+    }
+
     func rawVideo(player:AVPlayer?) {
 
         guard let player else { return }
@@ -135,6 +143,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
             //                playerViewController.
             //                       playerViewController.setupPlayer(url: url)
         }
+        FMLABCarOverlay.shared.attach(to: self.window)
     }
     
     
@@ -159,6 +168,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
                     //                playerViewController.
                     playerViewController.setupPlayer(url: url)
                 }
+        FMLABCarOverlay.shared.attach(to: self.window)
         
         
 
@@ -203,6 +213,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
  
     func loadWebPage() {
         webViewController = CustomWebViewController.shared.loadViewIncar(self.window)
+        FMLABCarOverlay.shared.attach(to: self.window)
      
         
     }
@@ -255,11 +266,10 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
                  CarPlayVideoImageView.leadingAnchor.constraint(equalTo: rootViewController.view.leadingAnchor, constant: offsetStyle.leftValue),
                  CarPlayVideoImageView.trailingAnchor.constraint(equalTo: rootViewController.view.trailingAnchor, constant: offsetStyle.rightValue)
              ])
-             CarPlayVideoImageView.backgroundColor = .black
+             CarPlayVideoImageView.backgroundColor = FMLABCarOverlay.shared.mirrorBackgroundColor
              ScreenCaptureManager.shared.addImageView(imageView: CarPlayVideoImageView,orientation: .init(rawValue: ScreenCaptureManager.shared.selectedOrientation.rawValue) ?? .left)
          }
-       
-        
+        FMLABCarOverlay.shared.attach(to: self.window)
     }
 }
 

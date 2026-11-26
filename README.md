@@ -8,6 +8,15 @@ App personale per vedere video e lo schermo dell'iPhone su CarPlay, da installar
   La sua licenza consente solo l'**uso personale e non commerciale** e **vieta la ridistribuzione**: questa app non va pubblicata (Senumy compreso) senza il suo permesso.
 - In arrivo: funzioni YouTube da [CarTube](https://github.com/Avangelista/CarTube) (GPLv3).
 
+## Funzioni FMLAB
+
+- **Schermata iPhone in italiano** con auto rilevata (nome dal collegamento CarPlay, tipo di collegamento, dimensione schermo, velocità GPS).
+- **Blocco di guida**: sopra la soglia (default 5 km/h) il video sull'auto va in pausa e resta l'audio; si sblocca dopo 4 s da fermo.
+- **Modalità passeggero**: tiene il video visibile in marcia, con conferma; vale solo per il viaggio e si spegne quando CarPlay si scollega.
+- **Chiamate**: durante una chiamata lo schermo FMLAB mostra "Chiamata in corso".
+- **Sfondi**: Campagna, Metropoli notturna, Synthwave, Fantasy, oppure un'immagine dal rullino; ancorati in basso per non tagliare il logo sugli schermi 8:3.
+- **App sul telefono**: elenco personalizzabile (aggiungi, elimina, riordina) per aprire le app da mostrare con la specchiatura; quelle con DRM sono segnalate.
+
 ## Cosa cambia rispetto a TDS 1.2.5
 
 - Nome **FMLAB CarPlay**, bundle ID `it.fmlab.carplay`, icona FMLAB.

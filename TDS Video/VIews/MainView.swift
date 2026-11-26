@@ -121,11 +121,12 @@ struct MainView: View {
 
     private var remoteSection: some View {
         Section {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 remoteButton("Home", "house.fill", .home) { FMLABCarRouter.shared.showHome() }
                 remoteButton("Schermo", "rectangle.on.rectangle", .mirror) { FMLABCarRouter.shared.showMirror() }
                 remoteButton("YouTube", "play.rectangle.fill", nil) { FMLABCarRouter.shared.showWeb(FMLABCarRouter.youtubeURL) }
                 remoteButton("Web", "safari.fill", .web) { FMLABCarRouter.shared.showWeb(nil) }
+                remoteButton("Opzioni", "gearshape.fill", .settings) { FMLABCarRouter.shared.showSettings() }
             }
             .buttonStyle(.plain)
             .disabled(!monitor.carPlayConnected)
@@ -204,6 +205,7 @@ struct MainView: View {
                 }))
             .disabled(!settings.drivingLockEnabled)
             Toggle("Mostra auto e velocità sullo schermo", isOn: $settings.showStatusBadge)
+            Toggle("Velocità grande nella home dell'auto", isOn: $settings.showSpeedOnHome)
         } header: {
             Text("Sicurezza")
         } footer: {

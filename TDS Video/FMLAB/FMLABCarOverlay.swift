@@ -157,7 +157,7 @@ final class FMLABCarOverlay {
     static func decide(lockEnabled: Bool, passenger: Bool, moving: Bool,
                        mode: FMLABCarRouter.Mode, onCall: Bool) -> FMLABLockDecision {
         if onCall { return .call }
-        if lockEnabled && !passenger && moving && mode != .home { return .driving }
+        if lockEnabled && !passenger && moving && !mode.isFMLABScreen { return .driving }
         return .none
     }
 
@@ -258,9 +258,13 @@ final class FMLABCarOverlay {
         if let kmh = monitor.speedKmh { parts.append("\(Int(kmh.rounded())) km/h") }
         if settings.passengerMode { parts.append("Passeggero") }
         badgeView.label.text = parts.joined(separator: " · ")
+        let mode = FMLABCarRouter.shared.mode
+        // nella home la velocità grande sostituisce la targhetta; nelle impostazioni c'è il riquadro auto
+        let homeHasSpeed = mode == .home && settings.showSpeedOnHome
         badgeView.isHidden = !settings.showStatusBadge || parts.isEmpty || !lockView.isHidden
+            || homeHasSpeed || mode == .settings
 
-        homeButton.isHidden = FMLABCarRouter.shared.mode == .home || !lockView.isHidden
+        homeButton.isHidden = mode.isFMLABScreen || !lockView.isHidden
 
         badgeView.superview?.bringSubviewToFront(badgeView)
         homeButton.superview?.bringSubviewToFront(homeButton)

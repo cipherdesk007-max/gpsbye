@@ -83,6 +83,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
         FMLABCarMonitor.shared.setCarPlayScene(connected: true, screenSize: window.bounds.size)
         FMLABCarRouter.shared.showHomeHandler = { [weak self] in self?.loadFMLABHome(autoMirror: false) }
         FMLABCarRouter.shared.showMirrorHandler = { [weak self] in self?.loadIOS() }
+        FMLABCarRouter.shared.showSettingsHandler = { [weak self] in self?.loadFMLABSettings() }
         FMLABCarRouter.shared.showWebHandler = { url in
             if let url { CustomWebViewController.shared.loadURL(url) }
             TDSVideoShared.shared.CarPlayComp?(.init(type: .web))
@@ -139,6 +140,26 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
         FMLABCarRouter.shared.showHomeHandler = nil
         FMLABCarRouter.shared.showMirrorHandler = nil
         FMLABCarRouter.shared.showWebHandler = nil
+        FMLABCarRouter.shared.showSettingsHandler = nil
+    }
+
+    /// FMLAB: menu Impostazioni sullo schermo dell'auto.
+    func loadFMLABSettings() {
+        guard let window = self.window else { return }
+        for subview in window.subviews {
+            subview.removeFromSuperview()
+        }
+        window.isUserInteractionEnabled = true
+        let vc = UIViewController()
+        vc.view.backgroundColor = .black
+        vc.view.isUserInteractionEnabled = true
+        window.rootViewController = vc
+        let panel = FMLABCarSettingsView(frame: vc.view.bounds)
+        panel.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        vc.view.addSubview(panel)
+        ScreenCaptureManager.shared.IncomingVideoDetected = true   // resta qui anche se arriva la specchiatura
+        FMLABCarRouter.shared.setMode(.settings)
+        FMLABCarOverlay.shared.attach(to: window)
     }
 
     /// FMLAB: home sullo schermo dell'auto.

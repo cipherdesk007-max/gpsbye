@@ -54,6 +54,19 @@ struct FMLABShowMirrorIntent: AppIntent {
     }
 }
 
+struct FMLABShowSettingsIntent: AppIntent {
+    static var title: LocalizedStringResource = "Impostazioni sull'auto"
+    static var description = IntentDescription("Apre il menu Impostazioni FMLAB sullo schermo dell'auto.")
+    static var openAppWhenRun: Bool = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        if let problem = FMLABIntentHelper.requireCar() { return .result(dialog: "\(problem)") }
+        FMLABCarRouter.shared.showSettings()
+        return .result(dialog: "Ecco le impostazioni sull'auto.")
+    }
+}
+
 struct FMLABNextWallpaperIntent: AppIntent {
     static var title: LocalizedStringResource = "Sfondo successivo"
     static var description = IntentDescription("Passa allo sfondo successivo sullo schermo dell'auto.")
@@ -78,6 +91,9 @@ struct FMLABShortcuts: AppShortcutsProvider {
         AppShortcut(intent: FMLABShowMirrorIntent(),
                     phrases: ["Schermo in \(.applicationName)", "Specchia l'iPhone con \(.applicationName)"],
                     shortTitle: "Schermo sull'auto", systemImageName: "rectangle.on.rectangle")
+        AppShortcut(intent: FMLABShowSettingsIntent(),
+                    phrases: ["Impostazioni in \(.applicationName)"],
+                    shortTitle: "Impostazioni sull'auto", systemImageName: "gearshape.fill")
         AppShortcut(intent: FMLABNextWallpaperIntent(),
                     phrases: ["Cambia sfondo in \(.applicationName)"],
                     shortTitle: "Sfondo successivo", systemImageName: "photo.on.rectangle.angled")

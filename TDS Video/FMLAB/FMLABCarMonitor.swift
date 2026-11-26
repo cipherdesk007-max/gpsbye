@@ -20,6 +20,7 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     @Published private(set) var connectionType: String = "—"
     @Published private(set) var carScreenSize: CGSize = .zero
     @Published private(set) var speedKmh: Double?
+    @Published private(set) var gpsAccuracy: Double?
     @Published private(set) var isMoving = false
     @Published private(set) var onCall = false
     @Published private(set) var locationStatus: CLAuthorizationStatus = .notDetermined
@@ -158,6 +159,7 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         guard loc.speed >= 0, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy <= 65 else {
             return
         }
+        gpsAccuracy = loc.horizontalAccuracy
         processSpeed(kmh: loc.speed * 3.6, at: Date())
     }
 

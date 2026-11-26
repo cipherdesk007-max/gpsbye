@@ -20,12 +20,17 @@ final class FMLABCarRouter {
         case mirror = "Specchiatura"
         case web = "Browser"
         case video = "Video"
+        case settings = "Impostazioni auto"
+
+        /// Schermate FMLAB senza video: restano usabili in marcia.
+        var isFMLABScreen: Bool { self == .home || self == .settings }
     }
 
     private(set) var mode: Mode = .home
     var showHomeHandler: (() -> Void)?
     var showMirrorHandler: (() -> Void)?
     var showWebHandler: ((URL?) -> Void)?
+    var showSettingsHandler: (() -> Void)?
 
     static let youtubeURL = URL(string: "https://m.youtube.com")!
 
@@ -38,6 +43,7 @@ final class FMLABCarRouter {
     func showHome() { DispatchQueue.main.async { self.showHomeHandler?() } }
     func showMirror() { DispatchQueue.main.async { self.showMirrorHandler?() } }
     func showWeb(_ url: URL?) { DispatchQueue.main.async { self.showWebHandler?(url) } }
+    func showSettings() { DispatchQueue.main.async { self.showSettingsHandler?() } }
 
     var isCarConnected: Bool { showHomeHandler != nil && FMLABCarMonitor.shared.carPlayConnected }
 }
@@ -102,6 +108,13 @@ final class FMLABTile: UIControl {
 final class FMLABCarHomeView: UIView {
     private let clockLabel = UILabel()
     private let dateLabel = UILabel()
+    private let speedLabel = UILabel()
+    private let carLabel = UILabel()
+    /// Per le anteprime di test: auto e velocità finte.
+    var previewStatus: (car: String, kmh: Double)? { didSet { updateStatus() } }
+    /// Per i test.
+    var isShowingSpeed: Bool { !speedLabel.isHidden }
+    var tileTitles: [String] { tiles.filter { !$0.isHidden }.compactMap(\.accessibilityLabel) }
     private let hintLabel = UILabel()
     private var tiles: [FMLABTile] = []
     private var timer: Timer?
@@ -129,7 +142,9 @@ final class FMLABCarHomeView: UIView {
         topScrim.startPoint = CGPoint(x: 0.5, y: 0)
         topScrim.endPoint = CGPoint(x: 0.5, y: 1)
         layer.insertSublayer(topScrim, at: 0)
-        for label in [clockLabel, dateLabel, hintLabel] {
+        speedLabel.textAlignment = .right
+        carLabel.textAlignment = .right
+        for label in [clockLabel, dateLabel, hintLabel, speedLabel, carLabel] {
             label.textColor = .white
             label.layer.shadowColor = UIColor.black.cgColor
             label.layer.shadowOpacity = 0.7
@@ -143,8 +158,10 @@ final class FMLABCarHomeView: UIView {
         updateClock()
         NotificationCenter.default.addObserver(self, selector: #selector(appsChanged),
                                                name: .fmlabAppsChanged, object: nil)
-        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        updateStatus()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.updateClock()
+            self?.updateStatus()
         }
     }
 
@@ -162,6 +179,23 @@ final class FMLABCarHomeView: UIView {
             self.buildTiles()
             self.setNeedsLayout()
         }
+    }
+
+    private func updateStatus() {
+        let show = FMLABSettings.shared.showSpeedOnHome
+        speedLabel.isHidden = !show
+        carLabel.isHidden = !show
+        guard show else { return }
+        let monitor = FMLABCarMonitor.shared
+        let kmh = previewStatus?.kmh ?? monitor.speedKmh
+        let car = previewStatus?.car ?? monitor.carName ?? (monitor.carPlayConnected ? "CarPlay" : "")
+        let number = kmh.map { "\(Int($0.rounded()))" } ?? "—"
+        let big = UIFont.monospacedDigitSystemFont(ofSize: speedLabel.font.pointSize, weight: .bold)
+        let small = UIFont.systemFont(ofSize: max(12, speedLabel.font.pointSize * 0.35), weight: .semibold)
+        let text = NSMutableAttributedString(string: number, attributes: [.font: big, .foregroundColor: UIColor.white])
+        text.append(NSAttributedString(string: " km/h", attributes: [.font: small, .foregroundColor: UIColor(white: 1, alpha: 0.8)]))
+        speedLabel.attributedText = text
+        carLabel.text = car
     }
 
     private func updateClock() {
@@ -182,8 +216,8 @@ final class FMLABCarHomeView: UIView {
             FMLABTile(title: "Browser", symbol: "safari.fill", tint: .systemTeal) {
                 FMLABCarRouter.shared.showWeb(nil)
             },
-            FMLABTile(title: "Sfondo", symbol: "photo.on.rectangle.angled", tint: .systemGreen) {
-                FMLABSettings.shared.nextWallpaper()
+            FMLABTile(title: "Impostazioni", symbol: "gearshape.fill", tint: .systemGray) {
+                FMLABCarRouter.shared.showSettings()
             },
         ]
         // App web: si aprono direttamente sull'auto (prime 4)
@@ -221,6 +255,11 @@ final class FMLABCarHomeView: UIView {
         clockLabel.frame = CGRect(x: pad, y: pad * 0.4, width: bounds.width * 0.5, height: topH * 0.62)
         dateLabel.font = .systemFont(ofSize: max(13, topH * 0.17), weight: .medium)
         dateLabel.frame = CGRect(x: pad, y: clockLabel.frame.maxY - 2, width: bounds.width * 0.6, height: topH * 0.26)
+        speedLabel.font = .monospacedDigitSystemFont(ofSize: topH * 0.46, weight: .bold)
+        speedLabel.frame = CGRect(x: bounds.width * 0.45, y: pad * 0.4, width: bounds.width * 0.55 - pad, height: topH * 0.62)
+        carLabel.font = .systemFont(ofSize: max(13, topH * 0.17), weight: .medium)
+        carLabel.frame = CGRect(x: bounds.width * 0.45, y: speedLabel.frame.maxY - 2, width: bounds.width * 0.55 - pad, height: topH * 0.26)
+        updateStatus()
 
         let hintH: CGFloat = max(16, bounds.height * 0.045)
         hintLabel.font = .systemFont(ofSize: hintH * 0.72, weight: .regular)
@@ -258,24 +297,50 @@ enum FMLABCarPreview {
     enum Overlay { case none, driving(Double), passenger, call }
 
     static func renderAll() {
-        render(size: CGSize(width: 1280, height: 480), name: "carpreview-1-home-schermo-largo", overlay: .none, badge: "Golf 8 · 0 km/h")
-        render(size: CGSize(width: 800, height: 480), name: "carpreview-2-home-schermo-standard", overlay: .none, badge: "Golf 8 · 0 km/h")
-        render(size: CGSize(width: 1280, height: 480), name: "carpreview-3-blocco-guida", overlay: .driving(47), badge: nil)
-        render(size: CGSize(width: 1280, height: 480), name: "carpreview-4-passeggero", overlay: .passenger, badge: "Golf 8 · 47 km/h · Passeggero")
+        render(size: CGSize(width: 1280, height: 480), name: "carpreview-1-home-schermo-largo", overlay: .none, badge: nil)
+        render(size: CGSize(width: 800, height: 480), name: "carpreview-2-home-schermo-standard", overlay: .none, badge: nil)
+        render(size: CGSize(width: 1280, height: 480), name: "carpreview-3-blocco-guida", overlay: .driving(47), badge: nil, kmh: 47)
+        render(size: CGSize(width: 1280, height: 480), name: "carpreview-4-passeggero", overlay: .passenger, badge: nil, kmh: 47)
         render(size: CGSize(width: 1280, height: 480), name: "carpreview-5-chiamata", overlay: .call, badge: nil)
-        render(size: CGSize(width: 1280, height: 480), name: "carpreview-6-notte", overlay: .none, badge: "Golf 8 · 0 km/h", night: true)
+        render(size: CGSize(width: 1280, height: 480), name: "carpreview-6-notte", overlay: .none, badge: nil, night: true)
+        renderSettings(size: CGSize(width: 1280, height: 480), name: "carpreview-7-impostazioni-schermo-largo")
+        renderSettings(size: CGSize(width: 800, height: 480), name: "carpreview-8-impostazioni-schermo-standard")
         // Ogni sfondo sulle 3 misure di schermo più comuni, per controllare il taglio del logo
         let settings = FMLABSettings.shared
         for wp in FMLABWallpaper.builtIn where wp.bundleFile != nil {
             for size in [CGSize(width: 800, height: 480), CGSize(width: 1280, height: 480), CGSize(width: 1920, height: 720)] {
                 render(size: size, name: "sfondo-\(wp.id)-\(Int(size.width))x\(Int(size.height))",
-                       overlay: .none, badge: "Golf 8 · 0 km/h", wallpaperImage: settings.image(for: wp))
+                       overlay: .none, badge: nil, wallpaperImage: settings.image(for: wp))
             }
         }
     }
 
+    private static func renderSettings(size: CGSize, name: String) {
+        let root = UIView(frame: CGRect(origin: .zero, size: size))
+        root.backgroundColor = .black
+        let wallpaper = FMLABWallpaperView(frame: root.bounds)
+        wallpaper.image = FMLABSettings.shared.currentWallpaperImage
+        root.addSubview(wallpaper)
+        let panel = FMLABCarSettingsView(frame: root.bounds)
+        panel.previewStatus = (car: "Golf 8", kmh: 0)
+        root.addSubview(panel)
+        root.layoutIfNeeded()
+        root.subviews.forEach { $0.setNeedsLayout(); $0.layoutIfNeeded() }
+        save(root, name: name)
+    }
+
+    private static func save(_ root: UIView, name: String) {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(bounds: root.bounds, format: format).image { ctx in
+            root.layer.render(in: ctx.cgContext)
+        }
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? image.pngData()?.write(to: docs.appendingPathComponent(name + ".png"))
+    }
+
     private static func render(size: CGSize, name: String, overlay: Overlay, badge: String?, night: Bool = false,
-                               wallpaperImage: UIImage? = nil) {
+                               wallpaperImage: UIImage? = nil, kmh: Double = 0) {
         let root = UIView(frame: CGRect(origin: .zero, size: size))
         root.backgroundColor = .black
         root.overrideUserInterfaceStyle = night ? .dark : .light
@@ -285,6 +350,7 @@ enum FMLABCarPreview {
         wallpaper.forceNight = night
         root.addSubview(wallpaper)
         let home = FMLABCarHomeView(frame: root.bounds)
+        home.previewStatus = (car: "Golf 8", kmh: kmh)
         root.addSubview(home)
         if let badge {
             let b = FMLABBadgeView()

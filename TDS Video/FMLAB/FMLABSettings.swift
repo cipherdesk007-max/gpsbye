@@ -65,6 +65,16 @@ final class FMLABSettings: ObservableObject {
         static let adBlock = "fmlab.youtubeAdBlock"
         static let sponsor = "fmlab.youtubeSponsorBlock"
         static let webApps = "fmlab.webApps"
+        static let speedHome = "fmlab.speedOnHome"
+    }
+
+    /// Velocità grande e nome auto nella home FMLAB sull'auto.
+    @Published var showSpeedOnHome: Bool {
+        didSet {
+            defaults.set(showSpeedOnHome, forKey: Key.speedHome)
+            NotificationCenter.default.post(name: .fmlabAppsChanged, object: nil)
+            FMLABCarOverlay.shared.refresh()
+        }
     }
 
     /// App web da aprire sullo schermo dell'auto. Le prime 4 hanno un riquadro nella home auto.
@@ -147,6 +157,7 @@ final class FMLABSettings: ObservableObject {
         let t = defaults.double(forKey: Key.threshold)
         speedThresholdKmh = t > 0 ? t : 5
         showStatusBadge = defaults.object(forKey: Key.badge) as? Bool ?? true
+        showSpeedOnHome = defaults.object(forKey: Key.speedHome) as? Bool ?? true
         youtubeAdBlock = defaults.object(forKey: Key.adBlock) as? Bool ?? true
         youtubeSponsorBlock = defaults.object(forKey: Key.sponsor) as? Bool ?? true
         if let data = defaults.data(forKey: Key.webApps),

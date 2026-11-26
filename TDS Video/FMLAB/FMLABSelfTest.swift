@@ -121,6 +121,7 @@ enum FMLABSelfTest {
             ("In marcia, browser", true, false, true, .web, false, .driving),
             ("In marcia, video", true, false, true, .video, false, .driving),
             ("In marcia, home FMLAB (usabile)", true, false, true, .home, false, .none),
+            ("In marcia, impostazioni sull'auto (usabili)", true, false, true, .settings, false, .none),
             ("In marcia, modalità passeggero", true, true, true, .video, false, .none),
             ("In marcia, blocco disattivato", false, false, true, .video, false, .none),
             ("Chiamata da fermo", true, false, false, .home, true, .call),
@@ -233,6 +234,40 @@ enum FMLABSelfTest {
             let minSide = tiles.map { min($0.frame.width, $0.frame.height) }.min() ?? 0
             check("\(label): riquadri abbastanza grandi da toccare (≥ 60 pt)", minSide >= 60, "\(Int(minSide)) pt")
         }
+
+        section("Home: velocità e riquadri fissi")
+        let probe = FMLABCarHomeView(frame: CGRect(x: 0, y: 0, width: 1280, height: 480))
+        probe.setNeedsLayout(); probe.layoutIfNeeded()
+        let fixed = ["Specchia iPhone", "YouTube", "Browser", "Impostazioni"]
+        check("Riquadri fissi: Specchia, YouTube, Browser, Impostazioni",
+              Array(probe.tileTitles.prefix(4)) == fixed, probe.tileTitles.prefix(4).joined(separator: ", "))
+        let speedWas = s.showSpeedOnHome
+        s.showSpeedOnHome = true
+        probe.previewStatus = (car: "Golf 8", kmh: 47)
+        check("Velocità grande visibile nella home", probe.isShowingSpeed)
+        s.showSpeedOnHome = false
+        probe.previewStatus = (car: "Golf 8", kmh: 47)
+        check("Velocità grande nascosta se disattivata", !probe.isShowingSpeed)
+        s.showSpeedOnHome = speedWas
+
+        section("Impostazioni sull'auto")
+        for size in [CGSize(width: 800, height: 480), CGSize(width: 1280, height: 480), CGSize(width: 1920, height: 720)] {
+            let panel = FMLABCarSettingsView(frame: CGRect(origin: .zero, size: size))
+            panel.setNeedsLayout(); panel.layoutIfNeeded()
+            let label = "\(Int(size.width))×\(Int(size.height))"
+            check("\(label): una miniatura per ogni sfondo", panel.thumbCount == s.allWallpapers.count,
+                  "\(panel.thumbCount)/\(s.allWallpapers.count)")
+            let outside = panel.subviews.filter { !$0.isHidden && !panel.bounds.insetBy(dx: -0.5, dy: -0.5).contains($0.frame) }
+            check("\(label): tutti i controlli dentro lo schermo", outside.isEmpty, "\(outside.count) fuori")
+            let small = panel.subviews.compactMap { $0 as? FMLABToggleRow }.filter { $0.frame.height < 44 }
+            check("\(label): interruttori alti almeno 44 pt", small.isEmpty)
+        }
+        let panel = FMLABCarSettingsView(frame: CGRect(x: 0, y: 0, width: 1280, height: 480))
+        panel.setNeedsLayout(); panel.layoutIfNeeded()
+        let before2 = s.wallpaperID
+        panel.tapThumb(2)
+        check("Tocco sulla miniatura cambia lo sfondo", s.wallpaperID == s.allWallpapers[2].id, s.wallpaperID)
+        s.wallpaperID = before2
 
         section("Telecomando")
         var received = false

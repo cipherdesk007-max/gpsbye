@@ -1,0 +1,821 @@
+--- a/Reloc/UI/MapPickerView.swift
++++ b/Reloc/UI/MapPickerView.swift
+@@ -133,14 +133,14 @@
+                 cameraTarget = coord
+             }
+         }
+-        .confirmationDialog("停止定位并恢复真实位置？", isPresented: $showStopConfirm, titleVisibility: .visible) {
+-            Button("停止并恢复", role: .destructive) {
++        .confirmationDialog("Interrompere la localizzazione e ripristinare la posizione reale?", isPresented: $showStopConfirm, titleVisibility: .visible) {
++            Button("Interrompi e ripristina", role: .destructive) {
+                 RelocTheme.hapticMedium()
+                 viewModel.stopAndRestore()
+             }
+-            Button("取消", role: .cancel) {}
++            Button("Annulla", role: .cancel) {}
+         } message: {
+-            Text("停止后系统将逐步切回本机真实 GPS 位置。")
++            Text("Dopo l'interruzione il sistema tornerà gradualmente alla posizione GPS reale del dispositivo.")
+         }
+     }
+ 
+@@ -163,7 +163,7 @@
+             }
+             .buttonStyle(.plain)
+ 
+-            TextField("搜索地点或输入 纬度, 经度", text: $searchText)
++            TextField("Cerca un luogo o inserisci latitudine, longitudine", text: $searchText)
+                 .font(.subheadline)
+                 .textInputAutocapitalization(.never)
+                 .autocorrectionDisabled()
+@@ -186,7 +186,7 @@
+                             .contentShape(Rectangle())
+                     }
+                     .buttonStyle(.plain)
+-                    .accessibilityLabel("清空搜索")
++                    .accessibilityLabel("Cancella la ricerca")
+                 } else {
+                     Button {
+                         RelocTheme.hapticLight()
+@@ -200,7 +200,7 @@
+                             .contentShape(Rectangle())
+                     }
+                     .buttonStyle(.plain)
+-                    .accessibilityLabel("手动输入坐标")
++                    .accessibilityLabel("Inserisci coordinate manualmente")
+                 }
+             }
+             .frame(width: 28, height: 44)
+@@ -273,7 +273,7 @@
+             }
+ 
+             Menu {
+-                Section("地图数据源") {
++                Section("Sorgente mappe") {
+                     ForEach(MapSource.allCases) { source in
+                         Button {
+                             viewModel.mapSource = source
+@@ -283,7 +283,7 @@
+                     }
+                 }
+                 if viewModel.mapSource == .appleNative {
+-                    Section("Apple 地图样式") {
++                    Section("Stile Apple Mappe") {
+                         ForEach(MapDisplayStyle.allCases) { style in
+                             Button {
+                                 viewModel.mapStyle = style
+@@ -293,9 +293,9 @@
+                         }
+                     }
+                 }
+-                Section("坐标") {
++                Section("Coordinate") {
+                     Button { showManualCoordinate = true } label: {
+-                        Label("手动输入经纬度", systemImage: "number")
++                        Label("Inserisci latitudine e longitudine manualmente", systemImage: "number")
+                     }
+                 }
+             } label: {
+@@ -337,18 +337,18 @@
+     private var statusPillTitle: String {
+         switch viewModel.injectionPhase {
+         case .activeConfirmed:
+-            return "外设定位已生效 ✓"
++            return "Localizzazione da accessorio attiva ✓"
+         case .injectingPendingLock:
+             return viewModel.needsLocationServiceRefresh
+-                ? "待刷新生效 · ACK \(viewModel.snapshot.packetsAcknowledged)"
+-                : "切换定位中 · ACK \(viewModel.snapshot.packetsAcknowledged)"
++                ? "In attesa dell'aggiornamento · ACK \(viewModel.snapshot.packetsAcknowledged)"
++                : "Cambio localizzazione in corso · ACK \(viewModel.snapshot.packetsAcknowledged)"
+         case .waitingSubscription:
+-            return viewModel.needsLocationServiceRefresh ? "已鉴权 · 待刷新订阅" : "已鉴权 · 唤醒订阅中…"
++            return viewModel.needsLocationServiceRefresh ? "Autenticato · sottoscrizione da aggiornare" : "Autenticato · risveglio della sottoscrizione in corso…"
+         case .connecting:
+-            return "建立回环连接中…"
++            return "Connessione loopback in corso…"
+         case .idle:
+-            if viewModel.connectionVerified { return "回环已就绪" }
+-            return viewModel.pairingStatus.isLoaded ? "已配对 · 可一键定位" : "未配对设备"
++            if viewModel.connectionVerified { return "Loopback pronto" }
++            return viewModel.pairingStatus.isLoaded ? "Abbinato · localizzazione con un tap" : "Dispositivo non abbinato"
+         }
+     }
+ 
+@@ -408,7 +408,7 @@
+                             .foregroundStyle(RelocTheme.accent)
+                             .frame(width: 20)
+                         VStack(alignment: .leading, spacing: 2) {
+-                            Text(item.name ?? "未知地点")
++                            Text(item.name ?? "Luogo sconosciuto")
+                                 .font(.subheadline.weight(.semibold))
+                                 .foregroundStyle(Color(uiColor: .label))
+                                 .lineLimit(1)
+@@ -487,15 +487,15 @@
+         HStack(spacing: 10) {
+             SettingsIconBadge(systemName: "arrow.counterclockwise", color: RelocTheme.amber)
+             VStack(alignment: .leading, spacing: 1) {
+-                Text("上次定位会话意外中断")
++                Text("L'ultima sessione di localizzazione si è interrotta in modo imprevisto")
+                     .font(.caption.weight(.bold))
+-                Text("恢复上次位置：\(record.placeName)")
++                Text("Ripristina l'ultima posizione: \(record.placeName)")
+                     .font(.caption2)
+                     .foregroundStyle(.secondary)
+                     .lineLimit(1)
+             }
+             Spacer()
+-            Button("恢复") {
++            Button("Ripristina") {
+                 RelocTheme.hapticMedium()
+                 viewModel.resumeInterruptedSession()
+                 cameraTarget = viewModel.activeMapCoordinate
+@@ -600,7 +600,7 @@
+                 Button(action: switchToConfig) {
+                     HStack(spacing: 8) {
+                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(RelocTheme.amber)
+-                        Text("尚未配对这台 iPhone，前往「设备连接」一键配对").font(.caption.weight(.semibold))
++                        Text("Questo iPhone non è ancora abbinato, andare in «Connessione dispositivo» per abbinare con un tap").font(.caption.weight(.semibold))
+                         Spacer()
+                         Image(systemName: "chevron.right").font(.caption2.weight(.bold))
+                     }
+@@ -611,9 +611,9 @@
+             } else if viewModel.locationAuthorizationStatus == .denied || viewModel.locationAuthorizationStatus == .restricted {
+                 HStack(spacing: 8) {
+                     Image(systemName: "location.slash.fill").foregroundStyle(RelocTheme.crimson)
+-                    Text("未开启定位权限，无法自动触发外设订阅").font(.caption.weight(.semibold))
++                    Text("Permesso di localizzazione non attivo, impossibile attivare automaticamente la sottoscrizione dell'accessorio").font(.caption.weight(.semibold))
+                     Spacer()
+-                    Button("去开启") {
++                    Button("Attiva") {
+                         viewModel.openAppSettings()
+                     }
+                     .font(.caption.weight(.bold))
+@@ -627,9 +627,9 @@
+             } else if viewModel.isLocationReducedAccuracy {
+                 HStack(spacing: 8) {
+                     Image(systemName: "scope").foregroundStyle(RelocTheme.amber)
+-                    Text("未开启「精确位置」，可能导致外设 GPS 无法锁定或偏移").font(.caption.weight(.semibold))
++                    Text("«Posizione precisa» non attiva, il GPS accessorio potrebbe non agganciarsi o risultare sfalsato").font(.caption.weight(.semibold))
+                     Spacer()
+-                    Button("去开启") {
++                    Button("Attiva") {
+                         viewModel.openAppSettings()
+                     }
+                     .font(.caption.weight(.bold))
+@@ -647,7 +647,7 @@
+             } else if viewModel.realLocationRestoredNotice {
+                 HStack(spacing: 8) {
+                     Image(systemName: "checkmark.circle.fill").foregroundStyle(RelocTheme.emerald)
+-                    Text("已恢复本机真实 GPS 定位")
++                    Text("Localizzazione GPS reale del dispositivo ripristinata")
+                         .font(.caption.weight(.semibold))
+                         .foregroundStyle(RelocTheme.emerald)
+                     Spacer()
+@@ -655,7 +655,7 @@
+                 .padding(10)
+                 .background(RelocTheme.emerald.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+             } else if let err = viewModel.snapshot.lastError {
+-                Text("上次错误：\(err)")
++                Text("Ultimo errore: \(err)")
+                     .font(.caption)
+                     .foregroundStyle(RelocTheme.crimson)
+                     .lineLimit(2)
+@@ -665,7 +665,7 @@
+                 if viewModel.snapshot.isRunning {
+                     if viewModel.pendingLocation != nil {
+                         RelocPrimaryButton(
+-                            title: "更新到此位置",
++                            title: "Aggiorna a questa posizione",
+                             systemImage: "paperplane.fill",
+                             gradient: RelocTheme.accentGradient
+                         ) {
+@@ -673,7 +673,7 @@
+                         }
+                     }
+                     RelocPrimaryButton(
+-                        title: "停止并恢复",
++                        title: "Interrompi e ripristina",
+                         systemImage: "stop.fill",
+                         gradient: RelocTheme.crimsonGradient
+                     ) {
+@@ -681,7 +681,7 @@
+                     }
+                 } else {
+                     RelocPrimaryButton(
+-                        title: "开始定位",
++                        title: "Avvia localizzazione",
+                         systemImage: "paperplane.fill",
+                         gradient: RelocTheme.accentGradient,
+                         disabled: !viewModel.canStartSession
+@@ -706,7 +706,7 @@
+             VStack(alignment: .leading, spacing: 8) {
+                 HStack(spacing: 7) {
+                     Image(systemName: "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(RelocTheme.amber)
+-                    Text("外设连接已断开，但系统仍在缓存上次定位（室内弱信号常见）。点击下方一键刷新定位服务即可立即恢复真实位置。")
++                    Text("Connessione dell'accessorio interrotta, ma il sistema usa ancora l'ultima localizzazione in cache (frequente con segnale debole in interno). Toccare sotto l'aggiornamento con un tap dei servizi di localizzazione per ripristinare subito la posizione reale.")
+                         .font(.caption2)
+                         .foregroundStyle(.primary)
+                 }
+@@ -714,7 +714,7 @@
+                     RelocTheme.hapticMedium()
+                     viewModel.launchOneTapRestoreRefresh()
+                 } label: {
+-                    Label("一键刷新定位服务（恢复真实位置）", systemImage: "pip.enter")
++                    Label("Aggiorna con un tap i servizi di localizzazione (ripristina la posizione reale)", systemImage: "pip.enter")
+                         .font(.caption.weight(.bold))
+                         .frame(maxWidth: .infinity)
+                         .padding(.vertical, 8)
+@@ -727,11 +727,11 @@
+         } else {
+             HStack(spacing: 8) {
+                 ProgressView().controlSize(.small)
+-                Text("已发送断开与失效报文，正在唤醒本机真实 GPS 恢复定位…")
++                Text("Inviati i messaggi di disconnessione e invalidazione, risveglio del GPS reale del dispositivo per ripristinare la localizzazione…")
+                     .font(.caption2)
+                     .foregroundStyle(.secondary)
+                 Spacer()
+-                Button("立即刷新") {
++                Button("Aggiorna ora") {
+                     RelocTheme.hapticLight()
+                     viewModel.launchOneTapRestoreRefresh()
+                 }
+@@ -754,10 +754,10 @@
+                 Image(systemName: "checkmark.seal.fill")
+                     .foregroundStyle(RelocTheme.emerald)
+                 VStack(alignment: .leading, spacing: 1) {
+-                    Text("外设 GPS 已 100% 生效")
++                    Text("GPS accessorio attivo al 100%")
+                         .font(.caption.weight(.bold))
+                         .foregroundStyle(RelocTheme.emerald)
+-                    Text("系统已确认外设来源（isProducedByAccessory = true），可直接切去任意 App")
++                    Text("Il sistema ha confermato la provenienza da accessorio (isProducedByAccessory = true), si può passare a qualsiasi app")
+                         .font(.caption2)
+                         .foregroundStyle(.secondary)
+                         .lineLimit(1)
+@@ -774,8 +774,8 @@
+                     Image(systemName: "bolt.circle.fill").foregroundStyle(RelocTheme.amber)
+                     Text(
+                         viewModel.injectionPhase == .waitingSubscription
+-                            ? "MFi 鉴权已通过，但系统尚未订阅外设 GPS。点击下方一键刷新（含悬浮 5 秒倒计时）即可唤醒订阅。"
+-                            : "NMEA 已连通，但系统仍在沿用本机缓存定位。点击下方一键刷新（含悬浮 5 秒倒计时）即可 100% 强制切换。"
++                            ? "Autenticazione MFi superata, ma il sistema non ha ancora sottoscritto il GPS accessorio. Toccare sotto l'aggiornamento con un tap (con conto alla rovescia flottante di 5 secondi) per risvegliare la sottoscrizione."
++                            : "NMEA connesso, ma il sistema usa ancora la localizzazione in cache del dispositivo. Toccare sotto l'aggiornamento con un tap (con conto alla rovescia flottante di 5 secondi) per forzare il passaggio al 100%."
+                     )
+                         .font(.caption2)
+                         .foregroundStyle(.primary)
+@@ -785,7 +785,7 @@
+                         RelocTheme.hapticMedium()
+                         viewModel.launchOneTapLocationRefresh()
+                     } label: {
+-                        Label("一键刷新定位服务（浮窗指引）", systemImage: "pip.enter")
++                        Label("Aggiorna con un tap i servizi di localizzazione (finestra flottante di guida)", systemImage: "pip.enter")
+                             .font(.caption.weight(.bold))
+                             .frame(maxWidth: .infinity)
+                             .padding(.vertical, 8)
+@@ -796,7 +796,7 @@
+                         RelocTheme.hapticLight()
+                         viewModel.retryAutoLock()
+                     } label: {
+-                        Text("重试")
++                        Text("Riprova")
+                             .font(.caption.weight(.semibold))
+                             .padding(.horizontal, 12)
+                             .padding(.vertical, 8)
+@@ -813,16 +813,16 @@
+                 ProgressView().controlSize(.small)
+                 Text(
+                     viewModel.injectionPhase == .connecting
+-                        ? "正在连接设备回环并完成 MFi 鉴权…"
++                        ? "Connessione al loopback del dispositivo e autenticazione MFi in corso…"
+                         : (viewModel.injectionPhase == .waitingSubscription
+-                            ? "鉴权成功，正在自动唤醒系统外设 GPS 订阅…"
+-                            : "正在高速注入 NMEA 坐标，等待系统锁定外设源…")
++                            ? "Autenticazione riuscita, risveglio automatico della sottoscrizione del GPS accessorio di sistema…"
++                            : "Invio ad alta velocità delle coordinate NMEA, in attesa che il sistema agganci la sorgente accessorio…")
+                 )
+                 .font(.caption2)
+                 .foregroundStyle(.secondary)
+                 Spacer()
+                 if viewModel.snapshot.authenticated {
+-                    Button("强制刷新") {
++                    Button("Forza aggiornamento") {
+                         RelocTheme.hapticLight()
+                         viewModel.launchOneTapLocationRefresh()
+                     }
+@@ -891,18 +891,18 @@
+         if let mkError = error as? MKError {
+             switch mkError.code {
+             case .placemarkNotFound:
+-                return "未找到匹配地点，可尝试换个关键词"
++                return "Nessun luogo corrispondente, prova con un'altra parola chiave"
+             case .loadingThrottled:
+-                return "搜索过于频繁，请稍后再试"
++                return "Ricerche troppo frequenti, riprovare tra poco"
+             default:
+-                return "搜索失败，请检查网络连接"
++                return "Ricerca non riuscita, controllare la connessione di rete"
+             }
+         }
+-        return error != nil ? "搜索失败，请检查网络连接" : "未找到匹配地点，可尝试换个关键词"
++        return error != nil ? "Ricerca non riuscita, controllare la connessione di rete" : "Nessun luogo corrispondente, prova con un'altra parola chiave"
+     }
+ 
+     private func parseCoordinatePair(_ input: String) -> (lat: Double, lon: Double)? {
+-        let normalized = input.replacingOccurrences(of: "，", with: ",")
++        let normalized = input.replacingOccurrences(of: ",", with: ",")
+         let parts = normalized.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+         guard parts.count == 2,
+               let lat = Double(parts[0]), let lon = Double(parts[1]),
+@@ -1040,7 +1040,7 @@
+     var title: String {
+         switch self {
+         case .completion(let c, _): return c.title
+-        case .mapItem(let m, _): return m.name ?? "未知地点"
++        case .mapItem(let m, _): return m.name ?? "Luogo sconosciuto"
+         }
+     }
+ 
+@@ -1200,7 +1200,7 @@
+ 
+         let activeAnn = TaggedAnnotation(kind: .active)
+         activeAnn.coordinate = activeCoordinate
+-        activeAnn.title = "当前位置"
++        activeAnn.title = "Posizione attuale"
+         mapView.addAnnotation(activeAnn)
+         context.coordinator.activeAnnotation = activeAnn
+ 
+@@ -1240,7 +1240,7 @@
+             } else {
+                 let ann = TaggedAnnotation(kind: .pending)
+                 ann.coordinate = pending
+-                ann.title = "待更新位置"
++                ann.title = "Posizione da aggiornare"
+                 uiView.addAnnotation(ann)
+                 context.coordinator.pendingAnnotation = ann
+             }
+@@ -1343,9 +1343,9 @@
+     var body: some View {
+         NavigationStack {
+             VStack(spacing: 0) {
+-                Picker("分类", selection: $tab) {
+-                    Text("收藏 (\(viewModel.favorites.count))").tag(0)
+-                    Text("最近记录 (\(viewModel.recents.count))").tag(1)
++                Picker("Categorie", selection: $tab) {
++                    Text("Preferiti (\(viewModel.favorites.count))").tag(0)
++                    Text("Recenti (\(viewModel.recents.count))").tag(1)
+                 }
+                 .pickerStyle(.segmented)
+                 .padding(.horizontal)
+@@ -1353,10 +1353,10 @@
+ 
+                 List {
+                     if tab == 0 {
+-                        Section("收藏当前选中位置") {
++                        Section("Aggiungi la posizione selezionata ai preferiti") {
+                             HStack {
+-                                TextField("输入名称", text: $newFavoriteName)
+-                                Button("保存") {
++                                TextField("Inserisci il nome", text: $newFavoriteName)
++                                Button("Salva") {
+                                     viewModel.saveCurrentAsFavorite(name: newFavoriteName)
+                                     newFavoriteName = ""
+                                 }
+@@ -1364,9 +1364,9 @@
+                             }
+                         }
+ 
+-                        Section("已保存收藏") {
++                        Section("Preferito salvato") {
+                             if viewModel.favorites.isEmpty {
+-                                Text("暂无收藏地点").foregroundStyle(.secondary)
++                                Text("Nessun luogo preferito").foregroundStyle(.secondary)
+                             } else {
+                                 ForEach(viewModel.favorites) { fav in
+                                     Button {
+@@ -1390,13 +1390,13 @@
+                                         Button(role: .destructive) {
+                                             viewModel.deleteFavorite(id: fav.id)
+                                         } label: {
+-                                            Label("删除", systemImage: "trash")
++                                            Label("Elimina", systemImage: "trash")
+                                         }
+                                         Button {
+                                             renameText = fav.name
+                                             renamingFavorite = fav
+                                         } label: {
+-                                            Label("重命名", systemImage: "pencil")
++                                            Label("Rinomina", systemImage: "pencil")
+                                         }
+                                         .tint(.orange)
+                                     }
+@@ -1406,7 +1406,7 @@
+                     } else {
+                         Section {
+                             if viewModel.recents.isEmpty {
+-                                Text("暂无最近使用记录").foregroundStyle(.secondary)
++                                Text("Nessun utilizzo recente").foregroundStyle(.secondary)
+                             } else {
+                                 ForEach(viewModel.recents) { item in
+                                     Button {
+@@ -1430,17 +1430,17 @@
+                                         Button(role: .destructive) {
+                                             viewModel.deleteRecent(id: item.id)
+                                         } label: {
+-                                            Label("删除", systemImage: "trash")
++                                            Label("Elimina", systemImage: "trash")
+                                         }
+                                     }
+                                 }
+                             }
+                         } header: {
+                             HStack {
+-                                Text("最近使用（最多 30 条）")
++                                Text("Usati di recente (max 30)")
+                                 Spacer()
+                                 if !viewModel.recents.isEmpty {
+-                                    Button("清空") { viewModel.clearRecents() }
++                                    Button("Svuota") { viewModel.clearRecents() }
+                                         .font(.caption)
+                                 }
+                             }
+@@ -1448,20 +1448,20 @@
+                     }
+                 }
+             }
+-            .navigationTitle("收藏与历史")
++            .navigationTitle("Preferiti e cronologia")
+             .navigationBarTitleDisplayMode(.inline)
+             .toolbar {
+                 ToolbarItem(placement: .cancellationAction) {
+-                    Button("关闭") { dismiss() }
++                    Button("Chiudi") { dismiss() }
+                 }
+             }
+-            .alert("重命名收藏", isPresented: Binding(
++            .alert("Rinomina preferito", isPresented: Binding(
+                 get: { renamingFavorite != nil },
+                 set: { if !$0 { renamingFavorite = nil } }
+             )) {
+-                TextField("新名称", text: $renameText)
+-                Button("取消", role: .cancel) { renamingFavorite = nil }
+-                Button("保存") {
++                TextField("Nuovo nome", text: $renameText)
++                Button("Annulla", role: .cancel) { renamingFavorite = nil }
++                Button("Salva") {
+                     if let fav = renamingFavorite {
+                         viewModel.renameFavorite(id: fav.id, newName: renameText)
+                     }
+@@ -1499,33 +1499,33 @@
+         NavigationStack {
+             Form {
+                 Section {
+-                    TextField("纬度 (-90 ~ 90)", text: $latText)
++                    TextField("Latitudine (-90 ~ 90)", text: $latText)
+                         .keyboardType(.numbersAndPunctuation)
+-                    TextField("经度 (-180 ~ 180)", text: $lonText)
++                    TextField("Longitudine (-180 ~ 180)", text: $lonText)
+                         .keyboardType(.numbersAndPunctuation)
+-                    TextField("海拔 (米)", text: $altText)
++                    TextField("Altitudine (m)", text: $altText)
+                         .keyboardType(.numbersAndPunctuation)
+                 } header: {
+-                    Text("WGS-84 坐标")
++                    Text("Coordinate WGS-84")
+                 } footer: {
+                     if parsedCoordinate == nil {
+-                        Text("请输入合法的纬度（-90 ~ 90）和经度（-180 ~ 180）。")
++                        Text("Inserire una latitudine valida (-90 ~ 90) e una longitudine valida (-180 ~ 180).")
+                             .foregroundStyle(RelocTheme.crimson)
+                     }
+                 }
+ 
+-                Section("保存到收藏（可选）") {
+-                    TextField("地点名称", text: $favoriteName)
++                Section("Salva nei preferiti (facoltativo)") {
++                    TextField("Nome del luogo", text: $favoriteName)
+                 }
+             }
+-            .navigationTitle("手动输入坐标")
++            .navigationTitle("Inserisci coordinate manualmente")
+             .navigationBarTitleDisplayMode(.inline)
+             .toolbar {
+                 ToolbarItem(placement: .cancellationAction) {
+-                    Button("取消") { dismiss() }
++                    Button("Annulla") { dismiss() }
+                 }
+                 ToolbarItem(placement: .confirmationAction) {
+-                    Button("应用") {
++                    Button("Applica") {
+                         guard let parsed = parsedCoordinate else { return }
+                         let trimmedName = favoriteName.trimmingCharacters(in: .whitespaces)
+                         viewModel.selectWGSLocation(
+--- a/Reloc/UI/ConfigurationView.swift
++++ b/Reloc/UI/ConfigurationView.swift
+@@ -14,9 +14,9 @@
+     @State private var copiedPinToast = false
+ 
+     private var serviceStateText: String {
+-        if viewModel.connectionVerified { return "已连接" }
+-        if viewModel.isVerifyingConnection { return "验证中" }
+-        return viewModel.connectionCheckFailed ? "连接失败" : "待验证"
++        if viewModel.connectionVerified { return "Connesso" }
++        if viewModel.isVerifyingConnection { return "Verifica in corso" }
++        return viewModel.connectionCheckFailed ? "Connessione non riuscita" : "Da verificare"
+     }
+ 
+     var body: some View {
+@@ -32,16 +32,16 @@
+                     HStack(spacing: 12) {
+                         SettingsIconBadge(systemName: "network", color: RelocTheme.accent)
+                         VStack(alignment: .leading, spacing: 3) {
+-                            Text("外部代理提供本地回环")
++                            Text("Il proxy esterno fornisce il loopback locale")
+                                 .font(.subheadline.weight(.semibold))
+-                            Text("请先在代理软件中启用 \(viewModel.host) 的回环映射，再完成下方配对与验证。Reloc 不创建 VPN。")
++                            Text("Attivare prima nel software proxy il mapping di loopback per \(viewModel.host), poi completare sotto abbinamento e verifica. Reloc non crea VPN.")
+                                 .font(.caption)
+                                 .foregroundStyle(.secondary)
+                         }
+                     }
+                     .padding(.vertical, 2)
+                 } header: {
+-                    stepSectionHeader(number: "01", title: "回环通路")
++                    stepSectionHeader(number: "01", title: "Loopback")
+                 }
+ 
+                 Section {
+@@ -51,11 +51,11 @@
+                             color: viewModel.pairingStatus.isLoaded ? RelocTheme.emerald : RelocTheme.amber
+                         )
+                         VStack(alignment: .leading, spacing: 2) {
+-                            Text("配对记录")
++                            Text("Record di abbinamento")
+                                 .font(.subheadline.weight(.medium))
+                             Text(viewModel.pairingStatus.isLoaded
+-                                 ? "已保存（\(viewModel.pairingStatus.kind?.rawValue ?? "")）"
+-                                 : "尚未配置这台 iPhone")
++                                 ? "Salvato (\(viewModel.pairingStatus.kind?.rawValue ?? ""))"
++                                 : "Questo iPhone non è ancora configurato")
+                                 .font(.caption)
+                                 .foregroundStyle(viewModel.pairingStatus.isLoaded ? RelocTheme.emerald : .secondary)
+                         }
+@@ -71,10 +71,10 @@
+                                 HStack {
+                                     Image(systemName: "iphone.gen3.radiowaves.left.and.right")
+                                         .font(.subheadline.weight(.semibold))
+-                                    Text(viewModel.pairingStatus.isLoaded ? "重新配对这台 iPhone" : "一键配对这台 iPhone")
++                                    Text(viewModel.pairingStatus.isLoaded ? "Riabbina questo iPhone" : "Abbina questo iPhone con un tap")
+                                         .font(.subheadline.weight(.semibold))
+                                     Spacer()
+-                                    Text("悬浮窗指引")
++                                    Text("Finestra flottante di guida")
+                                         .font(.caption2.weight(.semibold))
+                                         .padding(.horizontal, 8)
+                                         .padding(.vertical, 3)
+@@ -84,7 +84,7 @@
+                             .disabled(viewModel.isVerifyingConnection || viewModel.snapshot.isRunning)
+                         }
+                     } else {
+-                        Text("此系统版本请导入已有的配对文件。")
++                        Text("Con questa versione di sistema importare un file di abbinamento esistente.")
+                             .font(.footnote)
+                             .foregroundStyle(.secondary)
+                     }
+@@ -96,20 +96,20 @@
+                     Button {
+                         showImporter = true
+                     } label: {
+-                        Label("导入已有配对文件", systemImage: "square.and.arrow.down")
++                        Label("Importa file di abbinamento esistente", systemImage: "square.and.arrow.down")
+                     }
+                     .disabled(pairing.isRunning || viewModel.isVerifyingConnection || viewModel.snapshot.isRunning)
+ 
+                     if viewModel.pairingStatus.isLoaded {
+-                        Button("移除已保存配对记录", role: .destructive) {
++                        Button("Rimuovi il record di abbinamento salvato", role: .destructive) {
+                             viewModel.removePairingFile()
+                         }
+                         .disabled(pairing.isRunning || viewModel.isVerifyingConnection || viewModel.snapshot.isRunning)
+                     }
+                 } header: {
+-                    stepSectionHeader(number: "02", title: "设备配对")
++                    stepSectionHeader(number: "02", title: "Abbinamento dispositivo")
+                 } footer: {
+-                    Text("开始配对后会自动启用画中画悬浮指引窗：切到「设置 → 隐私与安全性 → 开发者模式」点击「与 Reloc 配对」，即可在悬浮窗中实时查看 6 位配对码。")
++                    Text("Dopo l'avvio dell'abbinamento si attiva automaticamente la finestra flottante di guida in Picture-in-Picture: passare a «Impostazioni → Privacy e sicurezza → Modalità sviluppatore» e toccare «Abbina con Reloc» per vedere in tempo reale il codice di abbinamento a 6 cifre nella finestra flottante.")
+                 }
+ 
+                 Section {
+@@ -131,7 +131,7 @@
+                                 .font(.subheadline.weight(.medium))
+                                 .textSelection(.enabled)
+                             if let port = viewModel.discoveredDevicePort {
+-                                Text("已连接回环端口：\(port)")
++                                Text("Porta loopback connessa: \(port)")
+                                     .font(.caption.monospacedDigit())
+                                     .foregroundStyle(.secondary)
+                             }
+@@ -143,14 +143,14 @@
+                         viewModel.testConnection(silent: false)
+                     } label: {
+                         Label(
+-                            viewModel.connectionVerified ? "重新检测连接" : "检测设备连接",
++                            viewModel.connectionVerified ? "Rileva di nuovo la connessione" : "Verifica connessione dispositivo",
+                             systemImage: "arrow.triangle.2.circlepath"
+                         )
+                     }
+                     .disabled(!viewModel.pairingStatus.isLoaded || viewModel.isVerifyingConnection || pairing.isRunning || viewModel.snapshot.isRunning)
+ 
+                     if !viewModel.deviceUDID.isEmpty {
+-                        LabeledContent("设备 UDID") {
++                        LabeledContent("UDID del dispositivo") {
+                             Text(viewModel.deviceUDID)
+                                 .font(.caption.monospaced())
+                                 .foregroundStyle(.secondary)
+@@ -158,15 +158,15 @@
+                         }
+                     }
+                 } header: {
+-                    stepSectionHeader(number: "03", title: "连接验证")
++                    stepSectionHeader(number: "03", title: "Verifica della connessione")
+                 } footer: {
+-                    Text("自动发现 Remote Pairing 服务并用配对记录验证广播身份，最终通过设备服务确认连接可用。")
++                    Text("Individua automaticamente il servizio Remote Pairing e verifica l'identità del broadcast con il record di abbinamento, confermando infine tramite il servizio dispositivo che la connessione è utilizzabile.")
+                 }
+ 
+-                Section("定位选项") {
++                Section("Opzioni di localizzazione") {
+                     Stepper(value: $viewModel.intervalSeconds, in: 1.0...10.0, step: 0.5) {
+                         Label {
+-                            Text(String(format: "NMEA 发送间隔 · %.1f 秒", viewModel.intervalSeconds))
++                            Text(String(format: "Intervallo di invio NMEA · %.1f s", viewModel.intervalSeconds))
+                                 .monospacedDigit()
+                         } icon: {
+                             SettingsIconBadge(systemName: "timer", color: RelocTheme.accent)
+@@ -174,14 +174,14 @@
+                     }
+ 
+                     Picker(selection: $viewModel.durationSeconds) {
+-                        Text("持续运行").tag(0.0)
+-                        Text("60 秒").tag(60.0)
+-                        Text("180 秒").tag(180.0)
+-                        Text("600 秒").tag(600.0)
+-                        Text("1800 秒").tag(1800.0)
++                        Text("Esecuzione continua").tag(0.0)
++                        Text("60 secondi").tag(60.0)
++                        Text("180 secondi").tag(180.0)
++                        Text("600 secondi").tag(600.0)
++                        Text("1800 secondi").tag(1800.0)
+                     } label: {
+                         Label {
+-                            Text("会话时长")
++                            Text("Durata sessione")
+                         } icon: {
+                             SettingsIconBadge(systemName: "hourglass", color: .purple)
+                         }
+@@ -189,7 +189,7 @@
+ 
+                     Toggle(isOn: $viewModel.gcj02CorrectionEnabled) {
+                         Label {
+-                            Text("中国大陆地图 GCJ-02 纠偏")
++                            Text("Correzione GCJ-02 mappe Cina continentale")
+                         } icon: {
+                             SettingsIconBadge(systemName: "globe.asia.australia.fill", color: RelocTheme.emerald)
+                         }
+@@ -197,7 +197,7 @@
+ 
+                     Toggle(isOn: $viewModel.microJitterEnabled) {
+                         Label {
+-                            Text("自然微漂移（±0.6m GPS 抖动）")
++                            Text("Micro-deriva naturale (±0,6 m di oscillazione GPS)")
+                         } icon: {
+                             SettingsIconBadge(systemName: "dot.radiowaves.left.and.right", color: RelocTheme.amber)
+                         }
+@@ -205,7 +205,7 @@
+ 
+                     Toggle(isOn: $viewModel.backgroundKeepAliveEnabled) {
+                         Label {
+-                            Text("后台保活（切换地图不断连）")
++                            Text("Mantenimento attivo in background (cambio mappa senza disconnessione)")
+                         } icon: {
+                             SettingsIconBadge(systemName: "bolt.shield.fill", color: .teal)
+                         }
+@@ -219,7 +219,7 @@
+                         }
+                     } label: {
+                         Label {
+-                            Text("外观主题")
++                            Text("Tema interfaccia")
+                         } icon: {
+                             SettingsIconBadge(systemName: "circle.lefthalf.filled", color: .gray)
+                         }
+@@ -231,7 +231,7 @@
+                         }
+                     } label: {
+                         Label {
+-                            Text("地图数据源")
++                            Text("Sorgente mappe")
+                         } icon: {
+                             SettingsIconBadge(systemName: "globe.americas.fill", color: RelocTheme.accent)
+                         }
+@@ -244,19 +244,19 @@
+                             }
+                         } label: {
+                             Label {
+-                                Text("Apple 地图样式")
++                                Text("Stile Apple Mappe")
+                             } icon: {
+                                 SettingsIconBadge(systemName: "map.fill", color: RelocTheme.accent)
+                             }
+                         }
+                     }
+                 } header: {
+-                    Text("地图与外观")
++                    Text("Mappe e aspetto")
+                 } footer: {
+-                    Text("默认使用 Apple 系统地图（MapKit 原生）；如需无高德字样的纯国际 WGS-84 底图，可切换为全球街道图、OpenStreetMap 或全球卫星图。")
++                    Text("Per impostazione predefinita usa le mappe di sistema Apple (MapKit nativo); per una mappa internazionale WGS-84 pura senza marchi, si può passare a Strade globali, OpenStreetMap o Satellite globale.")
+                 }
+             }
+-            .navigationTitle("设备配对与连接")
++            .navigationTitle("Abbinamento e connessione dispositivo")
+             .navigationBarTitleDisplayMode(.inline)
+             .task {
+                 viewModel.importDiscoveredPairing()
+@@ -300,9 +300,9 @@
+                 }
+ 
+                 VStack(alignment: .leading, spacing: 3) {
+-                    Text(ready ? "设备回环已就绪" : "配置本机回环连接")
++                    Text(ready ? "Loopback del dispositivo pronto" : "Configura la connessione loopback locale")
+                         .font(.headline)
+-                    Text(ready ? "可直接返回「定位」标签页开始定格定位" : "依次完成回环通路、本机配对与连接验证")
++                    Text(ready ? "Si può tornare direttamente alla scheda «Localizzazione» per bloccare la posizione" : "Completare in ordine loopback, abbinamento locale e verifica della connessione")
+                         .font(.caption)
+                         .foregroundStyle(.secondary)
+                 }
+@@ -311,17 +311,17 @@
+ 
+             HStack(spacing: 10) {
+                 MetricTile(
+-                    title: "配对状态",
+-                    value: viewModel.pairingStatus.isLoaded ? "已保存" : "未配置",
++                    title: "Stato abbinamento",
++                    value: viewModel.pairingStatus.isLoaded ? "Salvato" : "Non configurato",
+                     tint: viewModel.pairingStatus.isLoaded ? RelocTheme.emerald : .secondary
+                 )
+                 MetricTile(
+-                    title: "设备服务",
++                    title: "Servizi dispositivo",
+                     value: serviceStateText,
+                     tint: ready ? RelocTheme.emerald : (viewModel.connectionCheckFailed ? RelocTheme.amber : .secondary)
+                 )
+                 MetricTile(
+-                    title: "回环主机",
++                    title: "Host loopback",
+                     value: viewModel.host,
+                     tint: RelocTheme.accent
+                 )
+@@ -339,11 +339,11 @@
+         VStack(alignment: .leading, spacing: 12) {
+             if pairing.isRunning {
+                 HStack(spacing: 6) {
+-                    pairingStepPill(num: 1, title: "广播就绪", active: pairing.stepIndex >= 1, current: pairing.stepIndex == 1)
++                    pairingStepPill(num: 1, title: "Broadcast pronto", active: pairing.stepIndex >= 1, current: pairing.stepIndex == 1)
+                     Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
+-                    pairingStepPill(num: 2, title: "输入配对码", active: pairing.stepIndex >= 2, current: pairing.stepIndex == 2)
++                    pairingStepPill(num: 2, title: "Inserisci codice di abbinamento", active: pairing.stepIndex >= 2, current: pairing.stepIndex == 2)
+                     Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
+-                    pairingStepPill(num: 3, title: "保存完成", active: pairing.stepIndex >= 3, current: pairing.stepIndex == 3)
++                    pairingStepPill(num: 3, title: "Salvataggio completato", active: pairing.stepIndex >= 3, current: pairing.stepIndex == 3)
+                 }
+             }
+ 
+@@ -377,7 +377,7 @@
+                     copiedPinToast = true
+                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copiedPinToast = false }
+                 } label: {
+-                    Label(copiedPinToast ? "已复制配对码" : "复制配对码", systemImage: copiedPinToast ? "checkmark" : "doc.on.doc")
++                    Label(copiedPinToast ? "Codice di abbinamento copiato" : "Copia codice di abbinamento", systemImage: copiedPinToast ? "checkmark" : "doc.on.doc")
+                         .font(.subheadline.weight(.semibold))
+                         .frame(maxWidth: .infinity)
+                         .padding(.vertical, 8)
+@@ -393,7 +393,7 @@
+                         RelocTheme.hapticLight()
+                         pairing.toggleFloatingGuide()
+                     } label: {
+-                        Label(pip.isActive ? "收起悬浮指引窗" : "弹出悬浮指引窗", systemImage: pip.isActive ? "pip.exit" : "pip.enter")
++                        Label(pip.isActive ? "Riduci finestra flottante di guida" : "Apri finestra flottante di guida", systemImage: pip.isActive ? "pip.exit" : "pip.enter")
+                             .font(.subheadline.weight(.semibold))
+                             .frame(maxWidth: .infinity)
+                             .padding(.vertical, 10)
+@@ -403,7 +403,7 @@
+                     .foregroundStyle(RelocTheme.accent)
+                 }
+ 
+-                Button("取消配对", role: .destructive) {
++                Button("Annulla abbinamento", role: .destructive) {
+                     pairing.cancel()
+                 }
+                 .buttonStyle(.plain)

@@ -1,8 +1,8 @@
 //
 //  Help.swift
-//  TDS Video
+//  FMLAB CarPlay
 //
-//  Created by Thomas Dye on 19/03/2025.
+//  Guida in italiano (sostituisce quella di TDS).
 //
 
 import SwiftUI
@@ -12,70 +12,68 @@ struct Help: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Group {
-                    Text("📺 Screen Recording Setup")
+                    Text("📺 Specchiare lo schermo sull'auto")
                         .font(.headline)
-                    
                     Text("""
-1. Open the app.
-2. Start screen recording using the app extension:
-   - Open Control Centre.
-   - Long-press the screen recording button.
-   - Select **TDS Video** from the dropdown.
-3. This screen recording will begin streaming.
-4. Open the client app to view the stream.
+1. Collega l'iPhone a CarPlay e apri FMLAB CarPlay sullo schermo dell'auto.
+2. Sull'iPhone tocca **Avvia specchiatura schermo**, oppure:
+   - apri il Centro di Controllo;
+   - tieni premuto il pulsante di registrazione schermo;
+   - scegli **FMLAB CarPlay** e tocca **Avvia trasmissione**.
+3. Apri l'app che vuoi vedere (dalla sezione **App sul telefono** o dalla Home).
 """)
-
-                    Text("❗️ If the TDS Video extension doesn't appear, the system may not have updated the list of available apps. Try waiting a few moments or restarting your device.")
+                    Text("❗️ Se FMLAB CarPlay non compare nell'elenco della registrazione schermo, aspetta qualche secondo o riavvia l'iPhone.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
+
                 Divider()
-                
+
                 Group {
-                    Text("🌐 Web Page Streaming")
+                    Text("🌐 Siti web sull'auto")
                         .font(.headline)
-
                     Text("""
-1. Open the Web View screen.
-2. Press **Reload** to enter a URL (e.g., `home` for Google).
-3. Tap **Car Load** to stream the web content to the car display.
-4. Leave the web view, then press **Load Web View** to restore the view.
-5. Use the **WebView Buttons** screen to adjust or control the page.
+1. Apri **Browser** e vai al sito che vuoi.
+2. Tocca **All'auto** per mostrarlo sullo schermo dell'auto.
+3. Usa **Comandi del browser** per muovere il cursore, scorrere e ingrandire.
 """)
-
-                    Text("Tip: For left-handed cars, a toggle is available in settings to adjust the screen layout.")
+                    Text("Se il volante è a destra, attiva «Guida a destra» in Impostazioni specchiatura.")
                 }
 
                 Divider()
 
                 Group {
-                    Text("⚠️ Dealing with Lag")
+                    Text("🚗 Blocco di guida e passeggero")
                         .font(.headline)
-
                     Text("""
-Occasional lag can occur. If you experience issues:
-- Close both apps completely.
-- Reopen and retry the screen recording process.
+Sopra la soglia di velocità il video sull'auto va in pausa e resta solo l'audio. Se guarda il passeggero, attiva **Modalità passeggero**: vale solo per il viaggio in corso e si spegne quando scolleghi CarPlay.
 """)
                 }
 
                 Divider()
 
                 Group {
-                    Text("ℹ️ Other Info")
+                    Text("⚠️ Se va a scatti")
                         .font(.headline)
-
                     Text("""
-**Why no AirPlay?**
-Audio routing to CarPlay through AirPlay is not currently possible due to system limitations. Implementing this would cause audio to be rerouted through AirPlay, not the car.
+- Chiudi FMLAB CarPlay e l'app che stai specchiando.
+- Riaprile e riavvia la specchiatura.
+- Netflix, Prime Video, Disney+ e simili restano neri: è la loro protezione anti-copia (DRM), non un errore.
 """)
+                }
+
+                Divider()
+
+                Group {
+                    Text("ℹ️ Perché non AirPlay?")
+                        .font(.headline)
+                    Text("Con AirPlay l'audio andrebbe verso AirPlay invece che negli altoparlanti dell'auto: per questo FMLAB usa la specchiatura dello schermo.")
                 }
 
                 Spacer()
             }
             .padding()
         }
-        .navigationTitle("Help")
+        .navigationTitle("Guida")
     }
 }

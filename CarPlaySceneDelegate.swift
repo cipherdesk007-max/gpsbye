@@ -342,11 +342,11 @@ enum OffsetOption: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .none: return "None"
-        case .top: return "Top "
-        case .bottom: return "Bottom "
-        case .left: return "Left"
-        case .right: return "Right"
+        case .none: return "Nessuno"
+        case .top: return "In alto"
+        case .bottom: return "In basso"
+        case .left: return "Sinistra"
+        case .right: return "Destra"
         }
     }
 

@@ -230,21 +230,21 @@ public enum ScreenOrientation: Int, @unchecked Sendable, CaseIterable {
     func humanReadable() -> String {
         switch self {
         case .up:
-            return "Up"
+            return "Su"
         case .down:
-            return "Down"
+            return "Giù"
         case .left:
-            return "Left"
+            return "Sinistra"
         case .right:
-            return "Right"
+            return "Destra"
         case .upMirrored:
-            return "Up Mirrored"
+            return "Su (specchiato)"
         case .downMirrored:
-            return "Down Mirrored"
+            return "Giù (specchiato)"
         case .leftMirrored:
-            return "Left Mirrored"
+            return "Sinistra (specchiato)"
         case .rightMirrored:
-            return "Right Mirrored"
+            return "Destra (specchiato)"
         }
     }
 }
@@ -279,19 +279,19 @@ public enum AspectRatio : Int, @unchecked Sendable, CaseIterable {
     
     func humanReadableName() -> String {
           switch self {
-          case .scaleToFill: return "Scale To Fill"
-          case .scaleAspectFit: return "Scale Aspect Fit"
-          case .scaleAspectFill: return "Scale Aspect Fill"
-          case .redraw: return "Redraw"
-          case .center: return "Center"
-          case .top: return "Top"
-          case .bottom: return "Bottom"
-          case .left: return "Left"
-          case .right: return "Right"
-          case .topLeft: return "Top Left"
-          case .topRight: return "Top Right"
-          case .bottomLeft: return "Bottom Left"
-          case .bottomRight: return "Bottom Right"
+          case .scaleToFill: return "Riempi (deforma)"
+          case .scaleAspectFit: return "Adatta (bordi neri)"
+          case .scaleAspectFill: return "Riempi (taglia i bordi)"
+          case .redraw: return "Ridisegna"
+          case .center: return "Centro"
+          case .top: return "In alto"
+          case .bottom: return "In basso"
+          case .left: return "Sinistra"
+          case .right: return "Destra"
+          case .topLeft: return "In alto a sinistra"
+          case .topRight: return "In alto a destra"
+          case .bottomLeft: return "In basso a sinistra"
+          case .bottomRight: return "In basso a destra"
           }
       }
     

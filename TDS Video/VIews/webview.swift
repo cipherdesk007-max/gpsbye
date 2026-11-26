@@ -30,7 +30,7 @@ struct WebViewContainer: View {
 
             // You could place overlay loading UI or status feedback here
         }
-        .navigationTitle("Web Browser")
+        .navigationTitle("Browser")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .bottomBar) {
@@ -43,18 +43,18 @@ struct WebViewContainer: View {
                 Button {
                     TDSVideoShared.shared.CarPlayComp?(.init(type: .web, URL: nil))
                 } label: {
-                    Label("To Car", systemImage: "car.fill")
+                    Label("All'auto", systemImage: "car.fill")
                 }
 
                 Menu {
-                    Button("Control Page Buttons") {
+                    Button("Comandi della pagina") {
                         showCarButtons = true
                     }
-                    Button("Enter URL") {
+                    Button("Inserisci indirizzo") {
                         showURLInput = true
                     }
                 } label: {
-                    Label("More", systemImage: "ellipsis.circle")
+                    Label("Altro", systemImage: "ellipsis.circle")
                 }
             }
         }
@@ -75,14 +75,14 @@ struct URLInputSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(header: Text("Custom URL")) {
-                    TextField("Enter full URL (https://...)", text: $userInputURL)
+                Section(header: Text("Indirizzo personalizzato")) {
+                    TextField("Indirizzo completo (https://...)", text: $userInputURL)
                         .textInputAutocapitalization(.never)
                         .keyboardType(.URL)
                         .textFieldStyle(.roundedBorder)
                         .focused($urlFieldFocused)
 
-                    Button("Load URL") {
+                    Button("Apri indirizzo") {
                         if let url = URL(string: userInputURL.trimmingCharacters(in: .whitespacesAndNewlines)) {
                             CustomWebViewController.shared.loadURL(url)
                             showURLInput = false
@@ -93,25 +93,25 @@ struct URLInputSheet: View {
                     .disabled(userInputURL.isEmpty)
                 }
 
-                Section(header: Text("Shared URL")) {
+                Section(header: Text("Indirizzo condiviso")) {
                     if let shared = loadSharedURL() {
-                        Button("Load Shared URL: \(shared.absoluteString)") {
+                        Button("Apri indirizzo condiviso: \(shared.absoluteString)") {
                             CustomWebViewController.shared.loadURL(shared)
                             showURLInput = false
                         }
                     } else {
-                        Text("No shared URL available")
+                        Text("Nessun indirizzo condiviso")
                             .foregroundColor(.secondary)
                     }
                 }
 
                 Section {
-                    Button("Cancel", role: .cancel) {
+                    Button("Annulla", role: .cancel) {
                         showURLInput = false
                     }
                 }
             }
-            .navigationTitle("Enter Web URL")
+            .navigationTitle("Inserisci indirizzo web")
             .onAppear {
                 urlFieldFocused = true
             }

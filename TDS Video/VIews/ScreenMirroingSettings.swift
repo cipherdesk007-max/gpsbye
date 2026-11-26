@@ -14,8 +14,8 @@ struct ScreenMirroingSettings: View {
     
     var body: some View {
         Form {
-            Section(header: Label("Orientation", systemImage: "rectangle.rotate")) {
-                Picker("Screen Mirroring Orientation", selection: $videoAPI.selectedOrientation) {
+            Section(header: Label("Orientamento", systemImage: "rectangle.rotate")) {
+                Picker("Orientamento specchiatura", selection: $videoAPI.selectedOrientation) {
                     ForEach(ScreenOrientation.allCases, id: \.self) { orientation in
                         Text(orientation.humanReadable())
                             .tag(orientation)
@@ -24,8 +24,8 @@ struct ScreenMirroingSettings: View {
                 .pickerStyle(.menu)
             }
 
-            Section(header: Label("Aspect Ratio", systemImage: "aspectratio")) {
-                Picker("Aspect Ratio", selection: $videoAPI.selectedAspectRatio) {
+            Section(header: Label("Proporzioni", systemImage: "aspectratio")) {
+                Picker("Proporzioni", selection: $videoAPI.selectedAspectRatio) {
                     ForEach(AspectRatio.allCases, id: \.self) { ratio in
                         Text(ratio.humanReadableName())
                             .tag(ratio)
@@ -33,13 +33,13 @@ struct ScreenMirroingSettings: View {
                 }
                 .pickerStyle(.menu)
 
-                Text("Choose the display aspect ratio best suited to your vehicle screen.")
+                Text("Scegli le proporzioni più adatte allo schermo della tua auto.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
 
-            Section(header: Label("Screen Offset", systemImage: "arrow.left.and.right")) {
-                Picker("Offset Side", selection: Binding(
+            Section(header: Label("Margine dello schermo", systemImage: "arrow.left.and.right")) {
+                Picker("Lato del margine", selection: Binding(
                     get: { OffsetOption.from(offset: videoAPI.Screenoffset) },
                     set: {
                         videoAPI.Screenoffset = $0.offset
@@ -53,19 +53,19 @@ struct ScreenMirroingSettings: View {
                 }
                 .pickerStyle(.menu)
 
-                Text("Current Offset: \(videoAPI.Screenoffset.rawValue)")
+                Text("Margine attuale: \(videoAPI.Screenoffset.rawValue)")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
 
-//            Section(header: Label("Car Configuration", systemImage: "car")) {
-//                Toggle("Right-Hand Drive Car", isOn: $carIsRightHanded)
+//            Section(header: Label("Configurazione auto", systemImage: "car")) {
+//                Toggle("Guida a destra", isOn: $carIsRightHanded)
 //                
-//                Text("Toggle this if your car is right-hand drive. This adjusts screen layout and controls accordingly.")
+//                Text("Attivalo se il volante della tua auto è a destra: adatta la disposizione dello schermo e dei comandi.")
 //                    .font(.caption2)
 //                    .foregroundColor(.secondary)
 //            }
         }
-        .navigationTitle("Mirroring Settings")
+        .navigationTitle("Impostazioni specchiatura")
     }
 }

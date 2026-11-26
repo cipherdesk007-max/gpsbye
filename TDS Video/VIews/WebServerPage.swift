@@ -12,18 +12,18 @@ struct WebServerPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Live View Available")
+            Text("Visione dal vivo disponibile")
                 .font(.title)
                 .bold()
 
-            Text("While screen recording is active, you can view this device from another device on the same network by opening the following address in a web browser:")
-            Text("This is a work in progress, so please be patient, some features may not work yet. I have added this at request to support cars like Tesla where CarPlay is not available.")
+            Text("Mentre la specchiatura è attiva, puoi vedere questo iPhone da un altro dispositivo sulla stessa rete aprendo nel browser questo indirizzo:")
+            Text("Funzione sperimentale (di TDS): alcune parti potrebbero non funzionare. Serve per auto senza CarPlay, come Tesla, che hanno un browser.")
                 .font(.caption)
-            Text("if you like this, please let me know and I will work on improving the functionality")
+            Text("Lo schermo arriva al browser dell'auto o di un tablet.")
                 .font(.caption)
-            Text("No sound is handled!")
+            Text("L'audio non viene trasmesso.")
             Divider()
-            Text("IP address to connect to the screen")
+            Text("Indirizzo da aprire")
             ForEach(ipAddresses, id: \.self) { ip in
                 Text("http://\(ip):8080")
                     .font(.system(.body, design: .monospaced))

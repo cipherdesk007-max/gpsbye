@@ -219,7 +219,7 @@ struct MainView: View {
                 Label("Server HTTP", systemImage: "server.rack")
             }
             NavigationLink(destination: Help()) {
-                Label("Guida (in inglese)", systemImage: "questionmark.circle")
+                Label("Guida", systemImage: "questionmark.circle")
             }
         } header: {
             Text("Specchiatura, video e web")

@@ -20,7 +20,7 @@ struct SingleVideoPicker: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Pick a file you would like, wait while it is made available, then press the Send to car button.")
+            Text("Scegli un video, aspetta che sia pronto, poi premi «Invia all'auto».")
                 .multilineTextAlignment(.center)
 
             if let videoURL = selectedVideoURL {
@@ -28,7 +28,7 @@ struct SingleVideoPicker: View {
 
                 HStack(spacing: 30) {
                     Button(action: { skip(by: -10) }) {
-                        Label("Back 10s", systemImage: "gobackward.10")
+                        Label("Indietro 10 s", systemImage: "gobackward.10")
                     }
 
                     Button(action: {
@@ -44,11 +44,11 @@ struct SingleVideoPicker: View {
                     }
 
                     Button(action: { skip(by: 10) }) {
-                        Label("Forward 10s", systemImage: "goforward.10")
+                        Label("Avanti 10 s", systemImage: "goforward.10")
                     }
                 }
 
-                Button("Send to car") {
+                Button("Invia all'auto") {
                     var data = CarplayComClass(type: .video)
                     data.URL = videoURL
                     TDSVideoShared.shared.CarPlayComp?(data)
@@ -58,7 +58,7 @@ struct SingleVideoPicker: View {
 
             Divider()
 
-            Text("Saved Videos")
+            Text("Video salvati")
                 .font(.headline)
 
             List {
@@ -67,7 +67,7 @@ struct SingleVideoPicker: View {
                         Text(url.lastPathComponent)
                             .lineLimit(1)
                         Spacer()
-//                        Button("Play") {
+//                        Button("Riproduci") {
 //                            selectedVideoURL = url
 //                            TDSVideoShared.shared.VideoPlayer = AVPlayer(url: url)
 //                            isPlaying = false
@@ -84,7 +84,7 @@ struct SingleVideoPicker: View {
             }
             .frame(height: 200)
 
-            Button("Pick a New File") {
+            Button("Scegli un nuovo file") {
                 isVideoPickerPresented = true
             }
             .fileImporter(
@@ -124,7 +124,7 @@ struct SingleVideoPicker: View {
                     print("Error importing file: \(error.localizedDescription)")
                 }
             }
-            Button("Pick from Photos") {
+            Button("Scegli da Foto") {
                 isPhotosPickerPresented = true
             }
             .sheet(isPresented: $isPhotosPickerPresented) {

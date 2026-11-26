@@ -16,28 +16,28 @@ struct WebViewButtons: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                Text("Cursor Navigation")
+                Text("Movimento cursore")
                     .font(.headline)
 
                 cursorControl
 
                 Divider()
 
-                Text("Scroll Content")
+                Text("Scorri il contenuto")
                     .font(.headline)
 
                 scrollControls
 
                 Divider()
 
-                Text("Resize Web Content")
+                Text("Ridimensiona la pagina")
                     .font(.headline)
 
                 resizeControls
 
                 Divider()
 
-                Text("Move Viewport")
+                Text("Sposta la vista")
                     .font(.headline)
 
                 viewportControls
@@ -144,7 +144,7 @@ struct WebViewButtons: View {
     }
 
     private var saveControls: some View {
-        Button("💾 Save current settings for domain") {
+        Button("💾 Salva le impostazioni per questo sito") {
             CustomWebViewController.shared.saveViewSettings()
         }
         .padding(.vertical, 6)
@@ -187,7 +187,7 @@ struct WebViewButtons: View {
                     .fill(centerButtonColour)
                     .frame(width: Size / 3, height: Size / 3)
                     .shadow(color: .gray, radius: 10)
-                Text("Select")
+                Text("Seleziona")
                     .foregroundColor(buttonColour)
                     .bold()
             }

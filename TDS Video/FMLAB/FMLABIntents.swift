@@ -22,6 +22,7 @@ struct FMLABShowHomeIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        FMLABLog.add("Siri/Comandi: \(String(describing: Self.self))")
         if let problem = FMLABIntentHelper.requireCar() { return .result(dialog: "\(problem)") }
         FMLABCarRouter.shared.showHome()
         return .result(dialog: "Ecco la home FMLAB.")
@@ -35,6 +36,7 @@ struct FMLABShowYouTubeIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        FMLABLog.add("Siri/Comandi: \(String(describing: Self.self))")
         if let problem = FMLABIntentHelper.requireCar() { return .result(dialog: "\(problem)") }
         FMLABCarRouter.shared.showWeb(FMLABCarRouter.youtubeURL)
         return .result(dialog: "Apro YouTube sull'auto.")
@@ -48,6 +50,7 @@ struct FMLABShowMirrorIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        FMLABLog.add("Siri/Comandi: \(String(describing: Self.self))")
         if let problem = FMLABIntentHelper.requireCar() { return .result(dialog: "\(problem)") }
         FMLABCarRouter.shared.showMirror()
         return .result(dialog: "Mostro lo schermo dell'iPhone. Se è nero, avvia la specchiatura dall'iPhone.")
@@ -61,6 +64,7 @@ struct FMLABShowSettingsIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        FMLABLog.add("Siri/Comandi: \(String(describing: Self.self))")
         if let problem = FMLABIntentHelper.requireCar() { return .result(dialog: "\(problem)") }
         FMLABCarRouter.shared.showSettings()
         return .result(dialog: "Ecco le impostazioni sull'auto.")
@@ -74,6 +78,7 @@ struct FMLABNextWallpaperIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        FMLABLog.add("Siri/Comandi: \(String(describing: Self.self))")
         FMLABSettings.shared.nextWallpaper()
         let name = FMLABSettings.shared.allWallpapers.first { $0.id == FMLABSettings.shared.wallpaperID }?.name ?? ""
         return .result(dialog: "Sfondo: \(name).")

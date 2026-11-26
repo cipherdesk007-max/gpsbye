@@ -21,6 +21,8 @@ struct MainView: View {
     @State private var showAddWebApp = false
     @State private var appNotInstalled: String?
     @State private var carMode: FMLABCarRouter.Mode = FMLABCarRouter.shared.mode
+    @State private var logLines: [String] = []
+    @State private var didLogLaunch = false
 
     var body: some View {
         NavigationStack {
@@ -35,6 +37,7 @@ struct MainView: View {
                     appsSection.id("app")
                     youtubeSection.id("youtube")
                     mirroringSection.id("specchiatura")
+                    diagnosticsSection.id("diagnostica")
                     creditsSection.id("info")
                 }
                 .onAppear {
@@ -50,6 +53,11 @@ struct MainView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 monitor.start()
+                if !didLogLaunch {
+                    didLogLaunch = true
+                    FMLABLog.add("Avvio FMLAB CarPlay \(appVersion) — iOS \(UIDevice.current.systemVersion), \(UIDevice.current.model)")
+                }
+                logLines = FMLABLog.lastLines(8)
                 if FMLABCarPreview.requested { FMLABCarPreview.renderAll() }
                 if FMLABSelfTest.requested { Task { await FMLABSelfTest.run() } }
                 // per gli screenshot automatici: -fmlabOpenSheet addApp | addWeb
@@ -345,6 +353,36 @@ struct MainView: View {
             }
         } header: {
             Text("Specchiatura, video e web")
+        }
+    }
+
+    private var diagnosticsSection: some View {
+        Section {
+            if logLines.isEmpty {
+                Text("Nessun evento registrato.").foregroundStyle(Color.secondary)
+            } else {
+                ForEach(Array(logLines.enumerated()), id: \.offset) { _, line in
+                    Text(line).font(.system(.caption2, design: .monospaced))
+                }
+            }
+            Button {
+                logLines = FMLABLog.lastLines(8)
+            } label: {
+                Label("Aggiorna", systemImage: "arrow.clockwise")
+            }
+            ShareLink(item: FMLABLog.fileURL) {
+                Label("Condividi il log", systemImage: "square.and.arrow.up")
+            }
+            Button(role: .destructive) {
+                FMLABLog.clear()
+                logLines = []
+            } label: {
+                Label("Svuota il log", systemImage: "trash")
+            }
+        } header: {
+            Text("Diagnostica")
+        } footer: {
+            Text("Registra CarPlay, i tocchi che arrivano dallo schermo dell'auto, GPS, blocco, specchiatura, app aperte e Siri. Resta sul telefono finché non lo condividi tu. Dopo una prova in auto, condividilo per far correggere i problemi.")
         }
     }
 

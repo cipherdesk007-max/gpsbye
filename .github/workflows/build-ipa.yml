@@ -117,7 +117,7 @@ jobs:
           echo "::group::Test automatici FMLAB"; cat shots/fmlab-selftest.txt; echo "::endgroup::"
           # Screenshot reali di ogni sezione personalizzabile
           n=1
-          for target in telecomando sicurezza sfondi appweb app youtube specchiatura; do
+          for target in telecomando sicurezza sfondi appweb app youtube specchiatura diagnostica; do
             xcrun simctl terminate "$DEV" it.fmlab.carplay || true
             xcrun simctl launch "$DEV" it.fmlab.carplay -fmlabScrollTo "$target"
             sleep 6; xcrun simctl io "$DEV" screenshot "shots/iphone-$n-$target.png"; n=$((n+1))

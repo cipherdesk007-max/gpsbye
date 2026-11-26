@@ -113,6 +113,9 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         DispatchQueue.main.async {
             self.carPlayConnected = connected
             self.carScreenSize = connected ? screenSize : .zero
+            FMLABLog.add(connected
+                ? "CarPlay collegato: schermo \(Int(screenSize.width))×\(Int(screenSize.height)), audio \(AVAudioSession.sharedInstance().currentRoute.outputs.map { $0.portName }.joined(separator: ", "))"
+                : "CarPlay scollegato")
             // l'app può essere avviata dall'auto senza aprire la schermata iPhone:
             // il monitor deve partire comunque, altrimenti niente blocco di guida
             if connected { self.start() }
@@ -149,6 +152,7 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         locationStatus = manager.authorizationStatus
+        FMLABLog.add("Permesso posizione: \(locationAuthorized ? "concesso" : "non concesso (\(manager.authorizationStatus.rawValue))")")
         updateLocationActivity()
         FMLABCarOverlay.shared.refresh()
     }
@@ -168,11 +172,13 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         speedKmh = kmh
         let threshold = FMLABSettings.shared.speedThresholdKmh
         if kmh >= threshold {
+            if !isMoving { FMLABLog.add("In marcia: \(Int(kmh.rounded())) km/h") }
             isMoving = true
             belowThresholdSince = nil
         } else if isMoving {
             if let since = belowThresholdSince {
                 if now.timeIntervalSince(since) >= unlockDelay {
+                    FMLABLog.add("Fermo (sotto soglia da \(Int(unlockDelay)) s)")
                     isMoving = false
                     belowThresholdSince = nil
                 }
@@ -194,7 +200,9 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     private func updateCalls() {
+        let wasOnCall = onCall
         onCall = callObserver.calls.contains { !$0.hasEnded }
+        if onCall != wasOnCall { FMLABLog.add(onCall ? "Chiamata iniziata" : "Chiamata finita") }
         FMLABCarOverlay.shared.refresh()
     }
 }

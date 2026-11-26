@@ -33,7 +33,10 @@ final class FMLABToggleRow: UIView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) non usato") }
 
-    @objc private func changed() { onChange(toggle.isOn) }
+    @objc private func changed() {
+        FMLABLog.add("Tocco dall'auto: \(titleLabel.text ?? "?") = \(toggle.isOn ? "sì" : "no")")
+        onChange(toggle.isOn)
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()

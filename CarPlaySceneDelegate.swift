@@ -98,6 +98,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
             // FMLAB: TDS rimetteva sempre false, così con la specchiatura attiva il browser o un
             // video tornavano subito alla specchiatura. Ora resta su quello che hai scelto.
             ScreenCaptureManager.shared.IncomingVideoDetected = (url.type != .IOSAPP)
+            FMLABLog.add(url.type == .IOSAPP ? "Specchiatura: arrivano le immagini dall'iPhone" : "Contenuto sull'auto: \(url.type.rawValue)")
             switch url.type {
             case .video:
                 self.playVideo(url: url.URL!)

@@ -35,6 +35,7 @@ final class FMLABCarRouter {
     static let youtubeURL = URL(string: "https://m.youtube.com")!
 
     func setMode(_ newMode: Mode) {
+        if newMode != mode { FMLABLog.add("Schermo auto: \(newMode.rawValue)") }
         mode = newMode
         NotificationCenter.default.post(name: .fmlabCarModeChanged, object: nil)
         FMLABCarOverlay.shared.refresh()
@@ -102,7 +103,11 @@ final class FMLABTile: UIControl {
                                   width: bounds.width - 16, height: bounds.height * 0.22)
     }
 
-    @objc private func tapped() { action() }
+    @objc private func tapped() {
+        // se compare nel log, l'auto passa i tocchi all'app
+        FMLABLog.add("Tocco dall'auto: \(accessibilityLabel ?? "?")")
+        action()
+    }
 }
 
 final class FMLABCarHomeView: UIView {

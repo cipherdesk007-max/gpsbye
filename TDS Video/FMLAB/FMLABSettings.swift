@@ -133,7 +133,10 @@ final class FMLABSettings: ObservableObject {
     /// Modalità passeggero: NON salvata. Vale solo per il viaggio in corso e si
     /// disattiva da sola quando CarPlay si scollega o l'app viene chiusa.
     @Published var passengerMode: Bool = false {
-        didSet { FMLABCarOverlay.shared.refresh() }
+        didSet {
+            if passengerMode != oldValue { FMLABLog.add("Modalità passeggero: \(passengerMode ? "attivata" : "spenta")") }
+            FMLABCarOverlay.shared.refresh()
+        }
     }
 
     /// Mostra nome auto e velocità in alto a destra sullo schermo dell'auto.
@@ -202,7 +205,10 @@ final class FMLABSettings: ObservableObject {
             completion?(false)
             return
         }
-        UIApplication.shared.open(url, options: [:]) { ok in completion?(ok) }
+        UIApplication.shared.open(url, options: [:]) { ok in
+            FMLABLog.add("Apertura \(app.name): \(ok ? "ok" : "non riuscita") (\(url.scheme ?? "?"))")
+            completion?(ok)
+        }
     }
 
     // MARK: - Sfondi

@@ -272,6 +272,22 @@ enum FMLABSelfTest {
         check("Tocco sulla miniatura cambia lo sfondo", s.wallpaperID == s.allWallpapers[2].id, s.wallpaperID)
         s.wallpaperID = before2
 
+        section("Diagnostica")
+        FMLABLog.clear()
+        FMLABLog.add("Prova diagnostica 1")
+        FMLABLog.add("Prova diagnostica 2")
+        FMLABLog.flush()
+        let logged = FMLABLog.lastLines(5)
+        check("Il log registra gli eventi in ordine", logged.count == 2 && logged.last?.hasSuffix("Prova diagnostica 2") == true,
+              logged.joined(separator: " | "))
+        for i in 0..<4000 { FMLABLog.add("Riempimento \(i) — testo per verificare il limite di dimensione del file") }
+        FMLABLog.flush()
+        let logSize = (try? FileManager.default.attributesOfItem(atPath: FMLABLog.fileURL.path)[.size] as? Int) ?? 0
+        check("Il log non supera ~300 KB (taglia le righe vecchie)", logSize > 0 && logSize <= 300_000, "\(logSize) byte")
+        check("Dopo il taglio restano le righe recenti", FMLABLog.lastLines(1).first?.contains("Riempimento 3999") == true)
+        FMLABLog.clear()
+        check("«Svuota il log» lo cancella", FMLABLog.lastLines(5).isEmpty)
+
         section("Telecomando")
         var received = false
         let token = NotificationCenter.default.addObserver(forName: .fmlabCarModeChanged, object: nil, queue: nil) { _ in

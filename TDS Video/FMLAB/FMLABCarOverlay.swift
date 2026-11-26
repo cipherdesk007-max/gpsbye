@@ -166,6 +166,7 @@ final class FMLABCarOverlay {
     private let badgeView = FMLABBadgeView()
     private let lockView = FMLABLockView()
     private let homeButton = UIButton(type: .system)
+    private var lastDecision: FMLABLockDecision = .none
 
     private init() {
         var cfg = UIButton.Configuration.filled()
@@ -241,8 +242,13 @@ final class FMLABCarOverlay {
         let settings = FMLABSettings.shared
         let monitor = FMLABCarMonitor.shared
 
-        switch Self.decide(lockEnabled: settings.drivingLockEnabled, passenger: settings.passengerMode,
-                           moving: monitor.isMoving, mode: FMLABCarRouter.shared.mode, onCall: monitor.onCall) {
+        let decision = Self.decide(lockEnabled: settings.drivingLockEnabled, passenger: settings.passengerMode,
+                                   moving: monitor.isMoving, mode: FMLABCarRouter.shared.mode, onCall: monitor.onCall)
+        if decision != lastDecision {
+            FMLABLog.add("Schermata di blocco: \(decision == .driving ? "video in pausa (in marcia)" : decision == .call ? "chiamata" : "tolta")")
+            lastDecision = decision
+        }
+        switch decision {
         case .call:
             lockView.showCall()
             lockView.isHidden = false

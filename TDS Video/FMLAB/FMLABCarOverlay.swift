@@ -10,8 +10,9 @@
 
 import UIKit
 
-/// Immagine "aspect fill" ancorata in basso: sugli schermi larghi (8:3) taglia
-/// il cielo e non il logo FMLAB in basso a destra.
+/// Immagine "aspect fill" ancorata in basso a destra: sugli schermi larghi (8:3)
+/// taglia il cielo, su quelli stretti (5:3) taglia a sinistra; il logo FMLAB in
+/// basso a destra resta sempre intero.
 final class FMLABWallpaperView: UIView {
     private let imageView = UIImageView()
     /// Di notte (auto in modalità scura) lo sfondo si scurisce per non abbagliare.
@@ -56,8 +57,11 @@ final class FMLABWallpaperView: UIView {
         let scale = max(bounds.width / img.size.width, bounds.height / img.size.height)
         let w = img.size.width * scale
         let h = img.size.height * scale
-        imageView.frame = CGRect(x: (bounds.width - w) / 2, y: bounds.height - h, width: w, height: h)
+        imageView.frame = CGRect(x: bounds.width - w, y: bounds.height - h, width: w, height: h)
     }
+
+    /// Per i test: dove finisce l'immagine rispetto allo schermo.
+    var imageFrame: CGRect { imageView.frame }
 }
 
 final class FMLABBadgeView: UIView {

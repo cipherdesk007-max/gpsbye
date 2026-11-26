@@ -105,6 +105,8 @@ final class FMLABCarHomeView: UIView {
     private let hintLabel = UILabel()
     private var tiles: [FMLABTile] = []
     private var timer: Timer?
+    /// Sfumatura scura in alto: orologio e data leggibili anche sugli sfondi chiari.
+    private let topScrim = CAGradientLayer()
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -123,6 +125,10 @@ final class FMLABCarHomeView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
+        topScrim.colors = [UIColor.black.withAlphaComponent(0.45).cgColor, UIColor.black.withAlphaComponent(0).cgColor]
+        topScrim.startPoint = CGPoint(x: 0.5, y: 0)
+        topScrim.endPoint = CGPoint(x: 0.5, y: 1)
+        layer.insertSublayer(topScrim, at: 0)
         for label in [clockLabel, dateLabel, hintLabel] {
             label.textColor = .white
             label.layer.shadowColor = UIColor.black.cgColor
@@ -205,6 +211,10 @@ final class FMLABCarHomeView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         guard bounds.width > 0, bounds.height > 0 else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        topScrim.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.42)
+        CATransaction.commit()
         let pad = max(14, bounds.width * 0.022)
         let topH = bounds.height * 0.28
         clockLabel.font = .monospacedDigitSystemFont(ofSize: topH * 0.52, weight: .bold)
@@ -224,8 +234,10 @@ final class FMLABCarHomeView: UIView {
         let gridBottom = hintLabel.frame.minY - pad * 0.4
         let tileW = (bounds.width - pad * 2 - gap * CGFloat(cols - 1)) / CGFloat(cols)
         let tileH = min(tileW * 0.92, (gridBottom - gridTop - gap * CGFloat(rows - 1)) / CGFloat(rows))
+        // l'ultima casella (in basso a destra) resta libera: lì c'è il logo FMLAB dello sfondo
+        let capacity = cols * rows - 1
         for (i, tile) in tiles.enumerated() {
-            guard i < cols * rows else { tile.isHidden = true; continue }
+            guard i < capacity else { tile.isHidden = true; continue }
             tile.isHidden = false
             let r = i / cols, c = i % cols
             tile.frame = CGRect(x: pad + CGFloat(c) * (tileW + gap),

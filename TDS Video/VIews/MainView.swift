@@ -213,18 +213,16 @@ struct MainView: View {
 
     private var wallpaperSection: some View {
         Section {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(settings.allWallpapers) { wp in
-                        Button { settings.wallpaperID = wp.id } label: {
-                            WallpaperThumb(image: settings.image(for: wp), name: wp.name,
-                                           selected: settings.wallpaperID == wp.id)
-                        }
-                        .buttonStyle(.plain)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(settings.allWallpapers) { wp in
+                    Button { settings.wallpaperID = wp.id } label: {
+                        WallpaperThumb(image: settings.image(for: wp), name: wp.name,
+                                       selected: settings.wallpaperID == wp.id)
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding(.vertical, 6)
             }
+            .padding(.vertical, 6)
             PhotosPicker(selection: $photoItem, matching: .images) {
                 Label("Carica la tua immagine", systemImage: "photo.on.rectangle.angled")
             }
@@ -236,7 +234,7 @@ struct MainView: View {
         } header: {
             Text("Sfondo sull'auto")
         } footer: {
-            Text("Si vede quando la specchiatura è ferma. Per gli schermi larghi l'immagine viene tagliata in alto, così il logo in basso resta visibile. Consigliato: immagine orizzontale, almeno 1280 px di larghezza.")
+            Text("Si vede nella home FMLAB e quando la specchiatura è ferma. L'immagine resta agganciata in basso a destra: sugli schermi larghi si taglia il cielo, su quelli stretti il lato sinistro, così il logo resta sempre intero. Consigliato: immagine orizzontale, almeno 1280 px di larghezza.")
         }
     }
 
@@ -426,7 +424,8 @@ private struct WallpaperThumb: View {
                     Color.black
                 }
             }
-            .frame(width: 150, height: 84)
+            .frame(maxWidth: .infinity)
+            .frame(height: 84)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)

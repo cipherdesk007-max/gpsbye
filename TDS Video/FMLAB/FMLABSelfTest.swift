@@ -205,8 +205,8 @@ enum FMLABSelfTest {
 
         // MARK: Home sull'auto
         section("Home FMLAB sull'auto")
-        for (size, expectedTiles) in [(CGSize(width: 1280, height: 480), 12), (CGSize(width: 800, height: 480), 8),
-                                      (CGSize(width: 1920, height: 720), 12)] {
+        for (size, expectedTiles) in [(CGSize(width: 1280, height: 480), 11), (CGSize(width: 800, height: 480), 7),
+                                      (CGSize(width: 1920, height: 720), 11)] {
             let home = FMLABCarHomeView(frame: CGRect(origin: .zero, size: size))
             home.setNeedsLayout()
             home.layoutIfNeeded()
@@ -219,6 +219,16 @@ enum FMLABSelfTest {
             check("\(label): \(expectedTiles) riquadri visibili", tiles.count == expectedTiles, "\(tiles.count)")
             check("\(label): riquadri dentro lo schermo", inside)
             check("\(label): riquadri senza sovrapposizioni", !overlapping)
+            let cornerFree = !tiles.contains { $0.frame.maxX > home.bounds.width * 0.80 && $0.frame.maxY > home.bounds.height * 0.70 }
+            check("\(label): angolo in basso a destra libero per il logo", cornerFree)
+            let wallpaper = FMLABWallpaperView(frame: CGRect(origin: .zero, size: size))
+            wallpaper.image = s.image(for: FMLABWallpaper.builtIn[1])
+            wallpaper.setNeedsLayout()
+            wallpaper.layoutIfNeeded()
+            let f = wallpaper.imageFrame
+            check("\(label): sfondo ancorato in basso a destra (logo intero)",
+                  abs(f.maxX - size.width) < 0.5 && abs(f.maxY - size.height) < 0.5 && f.width >= size.width - 0.5 && f.height >= size.height - 0.5,
+                  "\(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))×\(Int(f.height))")
             let minSide = tiles.map { min($0.frame.width, $0.frame.height) }.min() ?? 0
             check("\(label): riquadri abbastanza grandi da toccare (≥ 60 pt)", minSide >= 60, "\(Int(minSide)) pt")
         }

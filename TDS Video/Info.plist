@@ -29,6 +29,55 @@
 			</array>
 		</dict>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>youtube</string>
+		<string>twitch</string>
+		<string>snssdk1233</string>
+		<string>vimeo</string>
+		<string>dailymotion</string>
+		<string>plex</string>
+		<string>infuse</string>
+		<string>vlc</string>
+		<string>nflx</string>
+		<string>aiv</string>
+		<string>disneyplus</string>
+		<string>dazn</string>
+		<string>spotify</string>
+		<string>youtubemusic</string>
+		<string>amznmp3</string>
+		<string>deezer</string>
+		<string>soundcloud</string>
+		<string>tidal</string>
+		<string>shazam</string>
+		<string>audible</string>
+		<string>podcasts</string>
+		<string>waze</string>
+		<string>comgooglemaps</string>
+		<string>maps</string>
+		<string>uber</string>
+		<string>whatsapp</string>
+		<string>tg</string>
+		<string>fb-messenger</string>
+		<string>instagram</string>
+		<string>fb</string>
+		<string>twitter</string>
+		<string>reddit</string>
+		<string>snapchat</string>
+		<string>discord</string>
+		<string>zoomus</string>
+		<string>msteams</string>
+		<string>googlegmail</string>
+		<string>ms-outlook</string>
+		<string>googlechrome</string>
+		<string>firefox</string>
+		<string>googlephotos</string>
+		<string>googledrive</string>
+		<string>steamlink</string>
+		<string>steam</string>
+		<string>xbox</string>
+		<string>psremoteplay</string>
+	</array>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>

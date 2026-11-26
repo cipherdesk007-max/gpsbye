@@ -57,7 +57,9 @@ struct MainView: View {
                 Text("\(appNotInstalled ?? "") non è installata su questo iPhone, oppure il collegamento non è corretto.")
             }
             .sheet(isPresented: $showAddApp) {
-                AddAppShortcutView { settings.appShortcuts.append($0) }
+                AddAppShortcutView(existingSchemes: Set(settings.appShortcuts.map { fmlabNormalizedScheme($0.urlScheme) })) {
+                    settings.appShortcuts.append($0)
+                }
             }
         }
     }
@@ -182,6 +184,9 @@ struct MainView: View {
             Button { showAddApp = true } label: {
                 Label("Aggiungi un'app", systemImage: "plus.circle")
             }
+            Button { addAllInstalled() } label: {
+                Label("Aggiungi tutte le app trovate sul telefono", systemImage: "sparkle.magnifyingglass")
+            }
             Button("Ripristina elenco predefinito") {
                 settings.appShortcuts = FMLABSettings.defaultApps
             }
@@ -275,6 +280,12 @@ struct MainView: View {
         }
     }
 
+    private func addAllInstalled() {
+        let existing = Set(settings.appShortcuts.map { fmlabNormalizedScheme($0.urlScheme) })
+        let found = FMLABAppCatalog.installed().filter { !existing.contains($0.scheme) }
+        settings.appShortcuts.append(contentsOf: found.map { $0.shortcut })
+    }
+
     private func open(_ app: FMLABAppShortcut) {
         var scheme = app.urlScheme.trimmingCharacters(in: .whitespaces)
         if !scheme.contains("://") { scheme += "://" }
@@ -317,8 +328,17 @@ private struct WallpaperThumb: View {
     }
 }
 
+/// "youtube://" -> "youtube"
+func fmlabNormalizedScheme(_ scheme: String) -> String {
+    scheme.trimmingCharacters(in: .whitespaces)
+        .replacingOccurrences(of: "://", with: "")
+        .lowercased()
+}
+
 private struct AddAppShortcutView: View {
+    var existingSchemes: Set<String>
     var onAdd: (FMLABAppShortcut) -> Void
+    @State private var installed: [FMLABCatalogApp] = []
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var scheme = ""
@@ -328,15 +348,49 @@ private struct AddAppShortcutView: View {
         NavigationStack {
             Form {
                 Section {
+                    if installed.isEmpty {
+                        Text("Nessuna nuova app del catalogo trovata su questo iPhone.")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(installed) { app in
+                        Button {
+                            onAdd(app.shortcut)
+                            installed.removeAll { $0.id == app.id }
+                        } label: {
+                            HStack {
+                                Image(systemName: app.symbol).frame(width: 28)
+                                VStack(alignment: .leading) {
+                                    Text(app.name).foregroundStyle(.primary)
+                                    Text(app.category).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if app.drm {
+                                    Text("DRM").font(.caption2).foregroundStyle(.orange)
+                                }
+                                Image(systemName: "plus.circle.fill")
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Trovate su questo iPhone")
+                } footer: {
+                    Text("iOS non mostra l'elenco completo delle app: FMLAB controlla le \(FMLABAppCatalog.all.count) app più diffuse. Per le altre usa \"Aggiungi a mano\".")
+                }
+                Section {
                     TextField("Nome (es. RaiPlay)", text: $name)
                     TextField("Collegamento (es. raiplay://)", text: $scheme)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
                     Toggle("Usa DRM (video nero in auto)", isOn: $drm)
+                } header: {
+                    Text("Aggiungi a mano")
                 } footer: {
                     Text("Il collegamento è lo schema URL dell'app. Se non lo conosci, cerca \"URL scheme\" seguito dal nome dell'app.")
                 }
+            }
+            .onAppear {
+                installed = FMLABAppCatalog.installed().filter { !existingSchemes.contains($0.scheme) }
             }
             .navigationTitle("Aggiungi un'app")
             .navigationBarTitleDisplayMode(.inline)

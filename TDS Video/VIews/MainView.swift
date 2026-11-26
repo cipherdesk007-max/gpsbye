@@ -8,6 +8,7 @@
 
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 import ReplayKit
 
 struct MainView: View {
@@ -473,6 +474,8 @@ private struct AddAppShortcutView: View {
     @State private var lcLink = ""
     @State private var lcName = ""
     @State private var lcError: String?
+    @State private var showLCImporter = false
+    @State private var importMessage: String?
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var scheme = ""
@@ -482,6 +485,12 @@ private struct AddAppShortcutView: View {
         NavigationStack {
             Form {
                 Section {
+                    Button { showLCImporter = true } label: {
+                        Label("Importa tutte le app di LiveContainer", systemImage: "square.and.arrow.down.on.square")
+                    }
+                    if let importMessage {
+                        Text(importMessage).font(.caption).foregroundStyle(Color.secondary)
+                    }
                     HStack {
                         TextField("livecontainer://livecontainer-launch?…", text: $lcLink)
                             .textInputAutocapitalization(.never)
@@ -520,7 +529,7 @@ private struct AddAppShortcutView: View {
                     Text("Da LiveContainer")
                 } footer: {
                     Text(FMLABAppCatalog.liveContainerInstalled
-                         ? "In LiveContainer tieni premuta l'app → «Aggiungi alla Schermata Home» → «Copia l'URL d'avvio», poi torna qui e tocca Incolla. Dall'auto FMLAB la apre dentro LiveContainer: con la specchiatura attiva la vedi sullo schermo dell'auto."
+                         ? "Importa: scegli la cartella Sul mio iPhone › LiveContainer e tocca Apri; FMLAB aggiunge tutte le app con il loro nome. Per una sola app: in LiveContainer tieni premuta l'app → «Aggiungi alla Schermata Home» → «Copia l'URL d'avvio», poi Incolla. Dall'auto FMLAB la apre dentro LiveContainer: con la specchiatura attiva la vedi sullo schermo dell'auto."
                          : "LiveContainer non risulta installato su questo iPhone.")
                 }
 
@@ -568,6 +577,19 @@ private struct AddAppShortcutView: View {
             }
             .onAppear {
                 installed = FMLABAppCatalog.installed().filter { !existingSchemes.contains($0.scheme) }
+            }
+            .fileImporter(isPresented: $showLCImporter, allowedContentTypes: [.folder]) { result in
+                switch result {
+                case .success(let url):
+                    let found = FMLABLiveContainerImport.apps(in: url)
+                        .filter { !existingSchemes.contains(fmlabNormalizedScheme($0.urlScheme)) }
+                    found.forEach { onAdd($0) }
+                    importMessage = found.isEmpty
+                        ? "Nessuna app nuova trovata. Scegli la cartella Sul mio iPhone › LiveContainer."
+                        : "Importate \(found.count) app di LiveContainer."
+                case .failure:
+                    importMessage = "Cartella non aperta."
+                }
             }
             .navigationTitle("Aggiungi un'app")
             .navigationBarTitleDisplayMode(.inline)

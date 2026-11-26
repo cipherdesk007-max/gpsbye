@@ -107,3 +107,41 @@ enum FMLABAppCatalog {
         }
     }
 }
+
+/// Importa le app di LiveContainer leggendo la sua cartella (visibile in File:
+/// Sul mio iPhone › LiveContainer › Applications). Il link d'avvio usa il nome
+/// della cartella .app, come fa LiveContainer con «Copia l'URL d'avvio».
+enum FMLABLiveContainerImport {
+    static func launchURL(for bundleDir: String) -> String? {
+        var comps = URLComponents()
+        comps.scheme = "livecontainer"
+        comps.host = "livecontainer-launch"
+        comps.queryItems = [URLQueryItem(name: "bundle-name", value: bundleDir)]
+        return comps.url?.absoluteString
+    }
+
+    static func apps(in picked: URL) -> [FMLABAppShortcut] {
+        let scoped = picked.startAccessingSecurityScopedResource()
+        defer { if scoped { picked.stopAccessingSecurityScopedResource() } }
+        let fm = FileManager.default
+        var dir = picked
+        if picked.lastPathComponent != "Applications" {
+            let candidate = picked.appendingPathComponent("Applications")
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: candidate.path, isDirectory: &isDir), isDir.boolValue {
+                dir = candidate
+            }
+        }
+        guard let items = try? fm.contentsOfDirectory(atPath: dir.path) else { return [] }
+        return items.filter { $0.hasSuffix(".app") }.sorted().compactMap { item in
+            var name = String(item.dropLast(4))
+            let plistURL = dir.appendingPathComponent(item).appendingPathComponent("Info.plist")
+            if let data = try? Data(contentsOf: plistURL),
+               let info = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] {
+                name = (info["CFBundleDisplayName"] as? String) ?? (info["CFBundleName"] as? String) ?? name
+            }
+            guard let link = launchURL(for: item) else { return nil }
+            return FMLABAppShortcut(name: name, urlScheme: link, symbol: "shippingbox", drmProtected: false)
+        }
+    }
+}

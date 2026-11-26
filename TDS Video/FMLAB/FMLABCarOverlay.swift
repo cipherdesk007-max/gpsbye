@@ -16,6 +16,8 @@ final class FMLABWallpaperView: UIView {
     private let imageView = UIImageView()
     /// Di notte (auto in modalità scura) lo sfondo si scurisce per non abbagliare.
     private let nightDim = UIView()
+    /// nil = segue la modalità scura dell'auto; true/false = forzato (anteprime di test).
+    var forceNight: Bool? { didSet { setNeedsLayout() } }
 
     var image: UIImage? {
         didSet {
@@ -47,7 +49,8 @@ final class FMLABWallpaperView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         nightDim.frame = bounds
-        nightDim.alpha = traitCollection.userInterfaceStyle == .dark ? 0.35 : 0
+        let night = forceNight ?? (traitCollection.userInterfaceStyle == .dark)
+        nightDim.alpha = night ? 0.35 : 0
         guard let img = imageView.image, img.size.width > 0, img.size.height > 0,
               bounds.width > 0, bounds.height > 0 else { return }
         let scale = max(bounds.width / img.size.width, bounds.height / img.size.height)

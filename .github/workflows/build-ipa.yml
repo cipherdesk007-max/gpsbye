@@ -18,8 +18,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Seleziona l'Xcode stabile più recente del runner
+        run: |
+          ls -d /Applications/Xcode*.app
+          XC=$(ls -d /Applications/Xcode_*.app | grep -viE 'beta|release_candidate|_rc' | sort -V | tail -1)
+          echo "Uso: $XC"
+          sudo xcode-select -s "$XC/Contents/Developer"
+
       - name: Ricostruzione sorgenti + localizzazione italiana
         run: bash scripts/bootstrap.sh
+
+      - name: Fix di compilazione (type-checker, logica invariata)
+        run: python3 scripts/fix-typecheck.py
 
       - name: Installa XcodeGen
         run: brew install xcodegen

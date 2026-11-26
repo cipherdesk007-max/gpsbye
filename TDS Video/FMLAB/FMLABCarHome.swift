@@ -234,8 +234,9 @@ final class FMLABCarHomeView: UIView {
         let gridBottom = hintLabel.frame.minY - pad * 0.4
         let tileW = (bounds.width - pad * 2 - gap * CGFloat(cols - 1)) / CGFloat(cols)
         let tileH = min(tileW * 0.92, (gridBottom - gridTop - gap * CGFloat(rows - 1)) / CGFloat(rows))
-        // l'ultima casella (in basso a destra) resta libera: lì c'è il logo FMLAB dello sfondo
-        let capacity = cols * rows - 1
+        // le ultime caselle in basso a destra restano libere: lì c'è il logo FMLAB dello sfondo
+        // (sugli schermi larghi il logo è più largo di una casella: ne lascio libere 2)
+        let capacity = cols * rows - (wide ? 2 : 1)
         for (i, tile) in tiles.enumerated() {
             guard i < capacity else { tile.isHidden = true; continue }
             tile.isHidden = false

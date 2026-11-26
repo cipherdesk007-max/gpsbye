@@ -208,12 +208,15 @@ final class FMLABCarSettingsView: UIView {
             y += rowH + gap
         }
 
-        infoCard.frame = CGRect(x: rightX, y: top, width: rightW, height: bounds.height - top - pad)
+        // riquadro alto quanto il testo (allineato in alto), così non copre il logo in basso a destra
+        updateInfo()
         infoTitle.font = .systemFont(ofSize: max(15, bounds.height * 0.05), weight: .bold)
         infoTitle.frame = CGRect(x: 14, y: 10, width: rightW - 28, height: bounds.height * 0.08)
         infoLabel.font = .systemFont(ofSize: max(12, bounds.height * 0.036), weight: .regular)
-        infoLabel.frame = CGRect(x: 14, y: infoTitle.frame.maxY + 4, width: rightW - 28,
-                                 height: infoCard.bounds.height - infoTitle.frame.maxY - 14)
-        updateInfo()
+        let maxCardH = bounds.height - top - pad
+        let fit = infoLabel.sizeThatFits(CGSize(width: rightW - 28, height: .greatestFiniteMagnitude))
+        let labelH = min(fit.height, maxCardH - infoTitle.frame.maxY - 18)
+        infoLabel.frame = CGRect(x: 14, y: infoTitle.frame.maxY + 4, width: rightW - 28, height: labelH)
+        infoCard.frame = CGRect(x: rightX, y: top, width: rightW, height: min(infoLabel.frame.maxY + 14, maxCardH))
     }
 }

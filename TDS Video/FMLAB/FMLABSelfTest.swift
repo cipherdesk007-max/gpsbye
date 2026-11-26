@@ -259,6 +259,9 @@ enum FMLABSelfTest {
                   "\(panel.thumbCount)/\(s.allWallpapers.count)")
             let outside = panel.subviews.filter { !$0.isHidden && !panel.bounds.insetBy(dx: -0.5, dy: -0.5).contains($0.frame) }
             check("\(label): tutti i controlli dentro lo schermo", outside.isEmpty, "\(outside.count) fuori")
+            let card = panel.subviews.first { $0.subviews.contains { ($0 as? UILabel)?.text == "La tua auto" } }
+            check("\(label): riquadro auto non copre il logo in basso a destra",
+                  (card?.frame.maxY ?? size.height) < size.height * 0.80, card.map { "fine a \(Int($0.frame.maxY))" } ?? "non trovato")
             let small = panel.subviews.compactMap { $0 as? FMLABToggleRow }.filter { $0.frame.height < 44 }
             check("\(label): interruttori alti almeno 44 pt", small.isEmpty)
         }

@@ -180,8 +180,18 @@ final class FMLABCarHomeView: UIView {
                 FMLABSettings.shared.nextWallpaper()
             },
         ]
-        // YouTube c'è già come riquadro FMLAB (browser senza pubblicità): niente doppione
-        let favorites = FMLABSettings.shared.appShortcuts.filter { fmlabNormalizedScheme($0.urlScheme) != "youtube" }
+        // App web: si aprono direttamente sull'auto (prime 4)
+        var shownNames: Set<String> = ["youtube"]
+        for web in FMLABSettings.shared.webApps.prefix(4) {
+            shownNames.insert(web.name.lowercased())
+            list.append(FMLABTile(title: web.name, symbol: web.symbol, tint: .systemTeal) {
+                if let url = web.resolvedURL { FMLABCarRouter.shared.showWeb(url) }
+            })
+        }
+        // App del telefono (via specchiatura); niente doppioni con YouTube e le app web
+        let favorites = FMLABSettings.shared.appShortcuts.filter {
+            fmlabNormalizedScheme($0.urlScheme) != "youtube" && !shownNames.contains($0.name.lowercased())
+        }
         for app in favorites.prefix(8) {
             list.append(FMLABTile(title: app.name, symbol: app.symbol,
                                   tint: app.drmProtected ? .systemOrange : .white) {

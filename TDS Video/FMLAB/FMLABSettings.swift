@@ -30,6 +30,20 @@ extension Notification.Name {
     static let fmlabAppsChanged = Notification.Name("fmlab.appsChanged")
 }
 
+/// App web: si aprono direttamente sullo schermo dell'auto (senza specchiatura).
+struct FMLABWebApp: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var name: String
+    var url: String
+    var symbol: String
+
+    var resolvedURL: URL? {
+        var s = url.trimmingCharacters(in: .whitespaces)
+        if !s.lowercased().hasPrefix("http://") && !s.lowercased().hasPrefix("https://") { s = "https://" + s }
+        return URL(string: s)
+    }
+}
+
 struct FMLABAppShortcut: Identifiable, Codable, Hashable {
     var id = UUID()
     var name: String
@@ -50,7 +64,28 @@ final class FMLABSettings: ObservableObject {
         static let apps = "fmlab.appShortcuts"
         static let adBlock = "fmlab.youtubeAdBlock"
         static let sponsor = "fmlab.youtubeSponsorBlock"
+        static let webApps = "fmlab.webApps"
     }
+
+    /// App web da aprire sullo schermo dell'auto. Le prime 4 hanno un riquadro nella home auto.
+    @Published var webApps: [FMLABWebApp] {
+        didSet {
+            if let data = try? JSONEncoder().encode(webApps) { defaults.set(data, forKey: Key.webApps) }
+            NotificationCenter.default.post(name: .fmlabAppsChanged, object: nil)
+        }
+    }
+
+    static let defaultWebApps: [FMLABWebApp] = [
+        FMLABWebApp(name: "Twitch", url: "https://m.twitch.tv", symbol: "dot.radiowaves.left.and.right"),
+        FMLABWebApp(name: "Google Maps", url: "https://www.google.com/maps", symbol: "mappin.and.ellipse"),
+        FMLABWebApp(name: "TikTok", url: "https://www.tiktok.com", symbol: "music.note.tv"),
+        FMLABWebApp(name: "Plex", url: "https://app.plex.tv", symbol: "server.rack"),
+        FMLABWebApp(name: "RaiPlay", url: "https://www.raiplay.it", symbol: "tv"),
+        FMLABWebApp(name: "Kick", url: "https://kick.com", symbol: "bolt.fill"),
+        FMLABWebApp(name: "Vimeo", url: "https://vimeo.com", symbol: "play.circle.fill"),
+        FMLABWebApp(name: "Dailymotion", url: "https://www.dailymotion.com", symbol: "play.circle"),
+        FMLABWebApp(name: "Google", url: "https://www.google.com", symbol: "magnifyingglass"),
+    ]
 
     /// Blocco pubblicità YouTube nel browser dell'auto (script AdGuard, da CarTube).
     @Published var youtubeAdBlock: Bool {
@@ -114,6 +149,12 @@ final class FMLABSettings: ObservableObject {
         showStatusBadge = defaults.object(forKey: Key.badge) as? Bool ?? true
         youtubeAdBlock = defaults.object(forKey: Key.adBlock) as? Bool ?? true
         youtubeSponsorBlock = defaults.object(forKey: Key.sponsor) as? Bool ?? true
+        if let data = defaults.data(forKey: Key.webApps),
+           let list = try? JSONDecoder().decode([FMLABWebApp].self, from: data) {
+            webApps = list
+        } else {
+            webApps = FMLABSettings.defaultWebApps
+        }
         if let data = defaults.data(forKey: Key.apps),
            let apps = try? JSONDecoder().decode([FMLABAppShortcut].self, from: data) {
             appShortcuts = apps

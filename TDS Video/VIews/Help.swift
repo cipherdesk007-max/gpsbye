@@ -37,6 +37,7 @@ struct Help: View {
 2. Tocca **All'auto** per mostrarlo sullo schermo dell'auto.
 3. Usa **Comandi del browser** per muovere il cursore, scorrere e ingrandire.
 """)
+                    Text("App web: in «App web sull'auto» trovi Twitch, Google Maps, TikTok, Plex, RaiPlay e puoi aggiungere qualsiasi sito. Si aprono direttamente sull'auto, senza specchiatura.")
                     Text("Se il volante è a destra, attiva «Guida a destra» in Impostazioni specchiatura.")
                 }
 

@@ -17,6 +17,7 @@ struct MainView: View {
     @State private var showPassengerConfirm = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showAddApp = false
+    @State private var showAddWebApp = false
     @State private var appNotInstalled: String?
     @State private var carMode: FMLABCarRouter.Mode = FMLABCarRouter.shared.mode
 
@@ -28,6 +29,7 @@ struct MainView: View {
                 carSection
                 safetySection
                 wallpaperSection
+                webAppsSection
                 appsSection
                 youtubeSection
                 mirroringSection
@@ -64,6 +66,9 @@ struct MainView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("\(appNotInstalled ?? "") non è installata su questo iPhone, oppure il collegamento non è corretto.")
+            }
+            .sheet(isPresented: $showAddWebApp) {
+                AddWebAppView { settings.webApps.append($0) }
             }
             .sheet(isPresented: $showAddApp) {
                 AddAppShortcutView(existingSchemes: Set(settings.appShortcuts.map { fmlabNormalizedScheme($0.urlScheme) })) {
@@ -214,6 +219,42 @@ struct MainView: View {
             Text("Sfondo sull'auto")
         } footer: {
             Text("Si vede quando la specchiatura è ferma. Per gli schermi larghi l'immagine viene tagliata in alto, così il logo in basso resta visibile. Consigliato: immagine orizzontale, almeno 1280 px di larghezza.")
+        }
+    }
+
+    private var webAppsSection: some View {
+        Section {
+            ForEach(settings.webApps) { web in
+                Button {
+                    if let url = web.resolvedURL { FMLABCarRouter.shared.showWeb(url) }
+                } label: {
+                    HStack {
+                        Image(systemName: web.symbol)
+                            .frame(width: 28)
+                            .foregroundStyle(Color.teal)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(web.name).foregroundStyle(Color.primary)
+                            Text(web.url).font(.caption2).foregroundStyle(Color.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        Image(systemName: "car.fill").foregroundStyle(Color.secondary)
+                    }
+                }
+                .disabled(!monitor.carPlayConnected)
+            }
+            .onDelete { settings.webApps.remove(atOffsets: $0) }
+            .onMove { settings.webApps.move(fromOffsets: $0, toOffset: $1) }
+            Button { showAddWebApp = true } label: {
+                Label("Aggiungi un sito o un'app web", systemImage: "plus.circle")
+            }
+            Button("Ripristina elenco predefinito") {
+                settings.webApps = FMLABSettings.defaultWebApps
+            }
+            .font(.footnote)
+        } header: {
+            Text("App web sull'auto")
+        } footer: {
+            Text("Si aprono direttamente sullo schermo dell'auto, nitide e senza specchiatura. Le prime 4 hanno un riquadro nella home FMLAB. Per muoverti nella pagina usa i tocchi sull'auto (se li passa) o Comandi del browser. I contenuti con DRM restano neri anche qui.")
         }
     }
 
@@ -385,6 +426,44 @@ func fmlabNormalizedScheme(_ scheme: String) -> String {
     scheme.trimmingCharacters(in: .whitespaces)
         .replacingOccurrences(of: "://", with: "")
         .lowercased()
+}
+
+private struct AddWebAppView: View {
+    var onAdd: (FMLABWebApp) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var url = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Nome (es. Meteo)", text: $name)
+                    TextField("Indirizzo (es. www.ilmeteo.it)", text: $url)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                } footer: {
+                    Text("Qualsiasi sito funziona come un'app sull'auto. Se manca https:// lo aggiungo io.")
+                }
+            }
+            .navigationTitle("Aggiungi app web")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Annulla") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Aggiungi") {
+                        onAdd(FMLABWebApp(name: name, url: url, symbol: "globe"))
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty ||
+                              url.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+    }
 }
 
 private struct AddAppShortcutView: View {

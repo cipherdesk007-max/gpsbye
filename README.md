@@ -23,7 +23,7 @@ App personale per vedere video e lo schermo dell'iPhone su CarPlay, da installar
 - **App installate trovate da sola** (1.3): catalogo di 46 app controllate con `canOpenURL`.
 
 - **Siri e Comandi** (1.5): «Ehi Siri, home / YouTube / schermo / cambia sfondo in FMLAB CarPlay», senza estensioni.
-- **Diagnostica** (2.2): registro di CarPlay, tocchi dall'auto, GPS, blocco, specchiatura, app aperte e Siri, da condividere dopo una prova in auto.
+- **Diagnostica** (2.2): registro di CarPlay, tocchi dall'auto, GPS, blocco, specchiatura, app aperte e Siri; crash (MetricKit) ed errori salvati su file; «Condividi log e crash» manda tutto in un colpo.
 - **Impostazioni sull'auto** (2.1): menu sullo schermo dell'auto con scelta sfondo a miniature, interruttori e dati dell'auto (nome, collegamento, schermo, velocità, GPS); velocità grande nella home.
 - **Importa da LiveContainer** (1.8): scegli la cartella Sul mio iPhone › LiveContainer e FMLAB aggiunge tutte le app con il loro nome.
 - **App di LiveContainer** (1.7): incolli l'«URL d'avvio» copiato in LiveContainer e FMLAB apre quell'app dentro LiveContainer (dall'iPhone o dal riquadro sull'auto); con la specchiatura la vedi sull'auto.

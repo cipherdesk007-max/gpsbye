@@ -14,6 +14,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var observer: NSKeyValueObservation?
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        FMLABCrashReporter.shared.start()   // FMLAB: crash ed errori su file
         
 
         return true

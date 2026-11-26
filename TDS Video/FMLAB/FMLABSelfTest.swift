@@ -288,6 +288,20 @@ enum FMLABSelfTest {
         FMLABLog.clear()
         check("«Svuota il log» lo cancella", FMLABLog.lastLines(5).isEmpty)
 
+        section("Crash ed errori")
+        let fakeCrash = FMLABCrashReporter.docs.appendingPathComponent("fmlab-crash-123.json")
+        try? Data("{\"prova\":true}".utf8).write(to: fakeCrash)
+        try? Data("ERRORE di prova".utf8).write(to: FMLABCrashReporter.errorsURL)
+        FMLABLog.add("riga")
+        FMLABLog.flush()
+        let files = FMLABCrashReporter.reportFiles().map(\.lastPathComponent)
+        check("File da mandare: log, errori e crash", files.contains("fmlab-diagnostica.txt")
+              && files.contains("fmlab-errori.txt") && files.contains("fmlab-crash-123.json"), files.joined(separator: ", "))
+        check("Conteggio segnalazioni (1 crash + errori)", FMLABCrashReporter.crashCount == 2, "\(FMLABCrashReporter.crashCount)")
+        FMLABCrashReporter.clearReports()
+        FMLABLog.clear()
+        check("«Svuota» cancella crash ed errori", FMLABCrashReporter.crashCount == 0 && FMLABCrashReporter.reportFiles().isEmpty)
+
         section("Telecomando")
         var received = false
         let token = NotificationCenter.default.addObserver(forName: .fmlabCarModeChanged, object: nil, queue: nil) { _ in

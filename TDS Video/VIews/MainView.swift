@@ -22,6 +22,8 @@ struct MainView: View {
     @State private var appNotInstalled: String?
     @State private var carMode: FMLABCarRouter.Mode = FMLABCarRouter.shared.mode
     @State private var logLines: [String] = []
+    @State private var reportFiles: [URL] = []
+    @State private var crashCount = 0
     @State private var didLogLaunch = false
 
     var body: some View {
@@ -57,7 +59,7 @@ struct MainView: View {
                     didLogLaunch = true
                     FMLABLog.add("Avvio FMLAB CarPlay \(appVersion) — iOS \(UIDevice.current.systemVersion), \(UIDevice.current.model)")
                 }
-                logLines = FMLABLog.lastLines(8)
+                refreshDiagnostics()
                 if FMLABCarPreview.requested { FMLABCarPreview.renderAll() }
                 if FMLABSelfTest.requested { Task { await FMLABSelfTest.run() } }
                 // per gli screenshot automatici: -fmlabOpenSheet addApp | addWeb
@@ -365,25 +367,39 @@ struct MainView: View {
                     Text(line).font(.system(.caption2, design: .monospaced))
                 }
             }
+            if crashCount > 0 {
+                Label("\(crashCount) segnalazioni di crash o errori da mandare", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Color.orange)
+            }
             Button {
-                logLines = FMLABLog.lastLines(8)
+                refreshDiagnostics()
             } label: {
                 Label("Aggiorna", systemImage: "arrow.clockwise")
             }
-            ShareLink(item: FMLABLog.fileURL) {
-                Label("Condividi il log", systemImage: "square.and.arrow.up")
+            if !reportFiles.isEmpty {
+                ShareLink(items: reportFiles) {
+                    Label("Condividi log e crash (\(reportFiles.count) file)", systemImage: "square.and.arrow.up")
+                }
             }
             Button(role: .destructive) {
                 FMLABLog.clear()
-                logLines = []
+                FMLABCrashReporter.clearReports()
+                refreshDiagnostics()
             } label: {
-                Label("Svuota il log", systemImage: "trash")
+                Label("Svuota log e crash", systemImage: "trash")
             }
         } header: {
             Text("Diagnostica")
         } footer: {
-            Text("Registra CarPlay, i tocchi che arrivano dallo schermo dell'auto, GPS, blocco, specchiatura, app aperte e Siri. Resta sul telefono finché non lo condividi tu. Dopo una prova in auto, condividilo per far correggere i problemi.")
+            Text("Registra CarPlay, i tocchi che arrivano dallo schermo dell'auto, GPS, blocco, specchiatura, app aperte e Siri. Se l'app va in crash, iOS consegna il rapporto al riavvio successivo e FMLAB lo salva qui. Tutto resta sul telefono finché non lo condividi tu.")
         }
+    }
+
+    private func refreshDiagnostics() {
+        FMLABLog.flush()
+        logLines = FMLABLog.lastLines(8)
+        reportFiles = FMLABCrashReporter.reportFiles()
+        crashCount = FMLABCrashReporter.crashCount
     }
 
     private var creditsSection: some View {

@@ -53,6 +53,21 @@ Sopra la soglia di velocità il video sull'auto va in pausa e resta solo l'audio
                 Divider()
 
                 Group {
+                    Text("🎙️ Comandi con Siri")
+                        .font(.headline)
+                    Text("""
+Con CarPlay collegato puoi dire:
+- «Ehi Siri, home in FMLAB CarPlay»
+- «Ehi Siri, YouTube in FMLAB CarPlay»
+- «Ehi Siri, schermo in FMLAB CarPlay»
+- «Ehi Siri, cambia sfondo in FMLAB CarPlay»
+Li trovi anche nell'app Comandi, per creare automazioni.
+""")
+                }
+
+                Divider()
+
+                Group {
                     Text("⚠️ Se va a scatti")
                         .font(.headline)
                     Text("""

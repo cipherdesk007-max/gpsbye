@@ -36,6 +36,7 @@ class TDSVideoAPI:NSObject,ObservableObject {
     private override init() {
     }
     
+    private let fmlabDisableTDSServer = true
     private let callCountKey = "TDSVideoAPICallCount"
 
     private var callCount: Int {
@@ -65,6 +66,11 @@ class TDSVideoAPI:NSObject,ObservableObject {
 //        }
     
     func DeviceBooted(VC:UIViewController) async {
+        // FMLAB: come nella versione attuale di TDS (paymentGateDisabled = true) niente schermata
+        // di pagamento; in più nessun invio di dati (ID, aperture, posizione) al server TDS.
+        UserDefaults.standard.set(true, forKey: "PAYMENTTDSVIDEO")
+        self.showPayment = false
+        if fmlabDisableTDSServer { return }
          let uuid = BackgroundAuthID(DeviceUUID: UUID().uuidString)
         self.showPayment = false
         // Increment call count
@@ -101,6 +107,7 @@ class TDSVideoAPI:NSObject,ObservableObject {
     }
 
     func sendDeviceUUID(UUID:String,callCount:Int) {
+        if fmlabDisableTDSServer { return }   // FMLAB: nessun dato inviato
 
         
         var request = URLRequest(url: serverURL)

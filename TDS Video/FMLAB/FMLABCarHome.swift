@@ -135,6 +135,8 @@ final class FMLABCarHomeView: UIView {
         hintLabel.textColor = UIColor(white: 1, alpha: 0.75)
         buildTiles()
         updateClock()
+        NotificationCenter.default.addObserver(self, selector: #selector(appsChanged),
+                                               name: .fmlabAppsChanged, object: nil)
         timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             self?.updateClock()
         }
@@ -142,7 +144,19 @@ final class FMLABCarHomeView: UIView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) non usato") }
 
-    deinit { timer?.invalidate() }
+    deinit {
+        timer?.invalidate()
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    /// Cambi l'elenco app sull'iPhone -> i riquadri sull'auto si aggiornano subito.
+    @objc private func appsChanged() {
+        DispatchQueue.main.async {
+            self.tiles.forEach { $0.removeFromSuperview() }
+            self.buildTiles()
+            self.setNeedsLayout()
+        }
+    }
 
     private func updateClock() {
         let now = Date()
@@ -226,11 +240,13 @@ enum FMLABCarPreview {
         render(size: CGSize(width: 1280, height: 480), name: "carpreview-3-blocco-guida", overlay: .driving(47), badge: nil)
         render(size: CGSize(width: 1280, height: 480), name: "carpreview-4-passeggero", overlay: .passenger, badge: "Golf 8 · 47 km/h · Passeggero")
         render(size: CGSize(width: 1280, height: 480), name: "carpreview-5-chiamata", overlay: .call, badge: nil)
+        render(size: CGSize(width: 1280, height: 480), name: "carpreview-6-notte", overlay: .none, badge: "Golf 8 · 0 km/h", night: true)
     }
 
-    private static func render(size: CGSize, name: String, overlay: Overlay, badge: String?) {
+    private static func render(size: CGSize, name: String, overlay: Overlay, badge: String?, night: Bool = false) {
         let root = UIView(frame: CGRect(origin: .zero, size: size))
         root.backgroundColor = .black
+        root.overrideUserInterfaceStyle = night ? .dark : .light
         let wallpaper = FMLABWallpaperView(frame: root.bounds)
         wallpaper.image = FMLABSettings.shared.currentWallpaperImage
         root.addSubview(wallpaper)

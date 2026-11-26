@@ -22,7 +22,15 @@ App personale per vedere video e lo schermo dell'iPhone su CarPlay, da installar
 - **YouTube senza pubblicità e sponsor** nel browser dell'auto (script AdGuard e SponsorBlock da CarTube).
 - **App installate trovate da sola** (1.3): catalogo di 46 app controllate con `canOpenURL`.
 
+- **Siri e Comandi** (1.5): «Ehi Siri, home / YouTube / schermo / cambia sfondo in FMLAB CarPlay», senza estensioni.
+- **Notte** (1.5): con l'auto in modalità scura lo sfondo si scurisce.
+
 ## Correzioni rispetto a TDS 1.2.5
+
+- **Schermata di pagamento** dopo la 5ª apertura: disattivata come nella versione attuale di TDS (`paymentGateDisabled = true`).
+- **Invio dati al server TDS** (ID, numero di aperture, posizione GPS) 30 s dopo l'avvio: disattivato.
+- GPS sempre acceso anche lontano dall'auto: ora solo con CarPlay collegato o app aperta.
+- App avviata dall'auto senza aprire l'iPhone: il blocco di guida non partiva.
 
 - Con la specchiatura attiva, browser e video tornavano subito alla specchiatura: ora restano.
 - La stessa vista veniva registrata a ogni ritorno alla specchiatura e ogni fotogramma era disegnato più volte.

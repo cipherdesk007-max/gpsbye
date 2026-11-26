@@ -28,6 +28,8 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     private let callObserver = CXCallObserver()
     private var belowThresholdSince: Date?
     private var started = false
+    private var updatingLocation = false
+    private var appIsActive = true
 
     /// Secondi sotto soglia prima di sbloccare (evita sblocchi ai semafori brevi o col GPS che oscilla).
     private let unlockDelay: TimeInterval = 4
@@ -43,6 +45,10 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         locationStatus = locationManager.authorizationStatus
         NotificationCenter.default.addObserver(self, selector: #selector(routeChanged),
                                                name: AVAudioSession.routeChangeNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appBecameActive),
+                                               name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appEnteredBackground),
+                                               name: UIApplication.didEnterBackgroundNotification, object: nil)
         updateRoute()
         updateCalls()
     }
@@ -51,13 +57,34 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     func start() {
         guard !started else { return }
         started = true
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
+        if locationManager.authorizationStatus == .notDetermined {
             locationManager.requestWhenInUseAuthorization()
-        case .authorizedWhenInUse, .authorizedAlways:
+        }
+        updateLocationActivity()
+    }
+
+    // Batteria: il GPS resta acceso solo con CarPlay collegato o con l'app aperta.
+    @objc private func appBecameActive() {
+        appIsActive = true
+        updateLocationActivity()
+    }
+
+    @objc private func appEnteredBackground() {
+        appIsActive = false
+        updateLocationActivity()
+    }
+
+    private func updateLocationActivity() {
+        let shouldRun = started && locationAuthorized && (carPlayConnected || appIsActive)
+        if shouldRun && !updatingLocation {
             startLocationUpdates()
-        default:
-            break
+        } else if !shouldRun && updatingLocation {
+            locationManager.stopUpdatingLocation()
+            locationManager.allowsBackgroundLocationUpdates = false
+            updatingLocation = false
+            speedKmh = nil
+            isMoving = false
+            FMLABCarOverlay.shared.refresh()
         }
     }
 
@@ -76,6 +103,7 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
             locationManager.showsBackgroundLocationIndicator = true
         }
         locationManager.startUpdatingLocation()
+        updatingLocation = true
     }
 
     // MARK: - CarPlay
@@ -84,10 +112,14 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         DispatchQueue.main.async {
             self.carPlayConnected = connected
             self.carScreenSize = connected ? screenSize : .zero
+            // l'app può essere avviata dall'auto senza aprire la schermata iPhone:
+            // il monitor deve partire comunque, altrimenti niente blocco di guida
+            if connected { self.start() }
             if !connected {
                 // la modalità passeggero vale solo per il viaggio in corso
                 FMLABSettings.shared.passengerMode = false
             }
+            self.updateLocationActivity()
             self.updateRoute()
             FMLABCarOverlay.shared.refresh()
         }
@@ -116,9 +148,7 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         locationStatus = manager.authorizationStatus
-        if locationAuthorized && started {
-            startLocationUpdates()
-        }
+        updateLocationActivity()
         FMLABCarOverlay.shared.refresh()
     }
 

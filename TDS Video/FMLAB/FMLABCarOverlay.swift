@@ -14,6 +14,8 @@ import UIKit
 /// il cielo e non il logo FMLAB in basso a destra.
 final class FMLABWallpaperView: UIView {
     private let imageView = UIImageView()
+    /// Di notte (auto in modalità scura) lo sfondo si scurisce per non abbagliare.
+    private let nightDim = UIView()
 
     var image: UIImage? {
         didSet {
@@ -30,12 +32,22 @@ final class FMLABWallpaperView: UIView {
         backgroundColor = .black
         imageView.contentMode = .scaleToFill
         addSubview(imageView)
+        nightDim.backgroundColor = .black
+        nightDim.isUserInteractionEnabled = false
+        addSubview(nightDim)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        setNeedsLayout()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) non usato") }
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        nightDim.frame = bounds
+        nightDim.alpha = traitCollection.userInterfaceStyle == .dark ? 0.35 : 0
         guard let img = imageView.image, img.size.width > 0, img.size.height > 0,
               bounds.width > 0, bounds.height > 0 else { return }
         let scale = max(bounds.width / img.size.width, bounds.height / img.size.height)

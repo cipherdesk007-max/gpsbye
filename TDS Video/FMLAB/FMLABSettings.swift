@@ -26,6 +26,10 @@ struct FMLABWallpaper: Identifiable, Hashable {
     ]
 }
 
+extension Notification.Name {
+    static let fmlabAppsChanged = Notification.Name("fmlab.appsChanged")
+}
+
 struct FMLABAppShortcut: Identifiable, Codable, Hashable {
     var id = UUID()
     var name: String
@@ -96,7 +100,10 @@ final class FMLABSettings: ObservableObject {
     }
 
     @Published var appShortcuts: [FMLABAppShortcut] {
-        didSet { saveApps() }
+        didSet {
+            saveApps()
+            NotificationCenter.default.post(name: .fmlabAppsChanged, object: nil)
+        }
     }
 
     private init() {

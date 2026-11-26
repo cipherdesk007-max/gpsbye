@@ -1,0 +1,301 @@
+--- a/Reloc/Core/Swift/PairingPiPPresenter.swift
++++ b/Reloc/Core/Swift/PairingPiPPresenter.swift
+@@ -23,8 +23,8 @@
+     private var dismissTimer: Timer?
+ 
+     private var stepIndex: Int = 1
+-    private var headline: String = "准备设备配对…"
+-    private var subtitle: String = "请保持本机网络回环已开启"
++    private var headline: String = "Preparazione dell'abbinamento del dispositivo…"
++    private var subtitle: String = "Assicurarsi che il loopback di rete locale sia attivo"
+     private var pin: String?
+     private var countdownSeconds: Int?
+     private var mode: Mode = .pairing
+@@ -56,8 +56,8 @@
+         self.mode = .pairing
+         self.deadline = deadline
+         self.stepIndex = 1
+-        self.headline = "准备本机配对服务…"
+-        self.subtitle = "正在启动 Bonjour 配对广播"
++        self.headline = "Preparazione del servizio di abbinamento locale…"
++        self.subtitle = "Avvio del broadcast Bonjour di abbinamento"
+         self.pin = nil
+         self.countdownSeconds = nil
+         self.outcome = .inProgress
+@@ -89,8 +89,8 @@
+         self.mode = .locationRefresh
+         self.deadline = Date().addingTimeInterval(180)
+         self.stepIndex = 1
+-        self.headline = "① 关闭系统「定位服务」"
+-        self.subtitle = "关闭后将自动开始 5 秒倒计时，无需手动计时"
++        self.headline = "① Disattivare i «Servizi di localizzazione» di sistema"
++        self.subtitle = "Dopo la chiusura partirà automaticamente un conto alla rovescia di 5 secondi, nessun bisogno di cronometrare"
+         self.pin = nil
+         self.countdownSeconds = nil
+         self.outcome = .inProgress
+@@ -134,7 +134,7 @@
+         self.mode = .locationRefresh
+         self.outcome = succeeded ? .succeeded : .failed
+         self.stepIndex = succeeded ? 3 : self.stepIndex
+-        self.headline = headline ?? (succeeded ? "外设定位已 100% 生效" : "定位刷新已取消")
++        self.headline = headline ?? (succeeded ? "Localizzazione da accessorio attiva al 100%" : "Aggiornamento della localizzazione annullato")
+         self.subtitle = message
+         self.pin = nil
+         self.countdownSeconds = nil
+@@ -163,7 +163,7 @@
+     func finish(succeeded: Bool, message: String) {
+         self.outcome = succeeded ? .succeeded : .failed
+         self.stepIndex = succeeded ? 3 : self.stepIndex
+-        self.headline = succeeded ? "配对成功 · 记录已保存" : "配对未完成"
++        self.headline = succeeded ? "Abbinamento riuscito · record salvato" : "Abbinamento non completato"
+         self.subtitle = message
+         self.pin = nil
+         self.wantsAutoStart = false
+@@ -446,11 +446,11 @@
+         accentColor.setFill()
+         UIRectFill(CGRect(x: 0, y: 0, width: rect.width, height: 6))
+ 
+-        // Header badge: "Reloc · 设备配对"
++        // Header badge: "Reloc · Abbinamento dispositivo"
+         let dotRect = CGRect(x: 24, y: 26, width: 12, height: 12)
+         UIBezierPath(ovalIn: dotRect).fill()
+ 
+-        let headerText = (mode == .locationRefresh ? "Reloc · 一键触发定位" : "Reloc · 设备配对指引") as NSString
++        let headerText = (mode == .locationRefresh ? "Reloc · Localizzazione con un tap" : "Reloc · Guida all'abbinamento del dispositivo") as NSString
+         headerText.draw(
+             at: CGPoint(x: 46, y: 20),
+             withAttributes: [
+@@ -463,10 +463,10 @@
+         if outcome == .inProgress {
+             let statusBadge: NSString
+             if mode == .locationRefresh {
+-                statusBadge = String(format: "步骤 %d/3 · 实时监测", stepIndex) as NSString
++                statusBadge = String(format: "Passo %d/3 · Monitoraggio in tempo reale", stepIndex) as NSString
+             } else {
+                 let remaining = max(0, Int(deadline.timeIntervalSinceNow.rounded()))
+-                statusBadge = String(format: "%02d:%02d  步骤 %d/3", remaining / 60, remaining % 60, stepIndex) as NSString
++                statusBadge = String(format: "%02d:%02d  Passo %d/3", remaining / 60, remaining % 60, stepIndex) as NSString
+             }
+             let size = statusBadge.size(withAttributes: [
+                 .font: UIFont.monospacedDigitSystemFont(ofSize: 19, weight: .semibold),
+@@ -497,7 +497,7 @@
+                 withAttributes: pinAttrs
+             )
+ 
+-            let hint = "请在「系统设置」弹窗中输入以上 6 位配对码" as NSString
++            let hint = "Inserire il codice di abbinamento a 6 cifre sopra indicato nella finestra di dialogo delle impostazioni di sistema" as NSString
+             let hintAttrs: [NSAttributedString.Key: Any] = [
+                 .font: UIFont.systemFont(ofSize: 21, weight: .medium),
+                 .foregroundColor: UIColor.white.withAlphaComponent(0.78),
+@@ -508,7 +508,7 @@
+                 withAttributes: hintAttrs
+             )
+         } else if mode == .locationRefresh, let secs = countdownSeconds {
+-            let text = (secs > 0 ? "\(secs) 秒" : "现在重新打开！") as NSString
++            let text = (secs > 0 ? "\(secs) secondi" : "Riattiva ora!") as NSString
+             let bigAttrs: [NSAttributedString.Key: Any] = [
+                 .font: UIFont.monospacedDigitSystemFont(ofSize: secs > 0 ? 68 : 48, weight: .bold),
+                 .foregroundColor: secs > 0
+--- a/Reloc/UI/ProtocolLogsView.swift
++++ b/Reloc/UI/ProtocolLogsView.swift
+@@ -9,9 +9,9 @@
+     @State private var copiedBanner = false
+ 
+     enum LogCategory: String, CaseIterable, Identifiable {
+-        case all = "全部"
++        case all = "Tutti"
+         case nmea = "NMEA"
+-        case errors = "错误"
++        case errors = "Errori"
+         var id: String { rawValue }
+     }
+ 
+@@ -74,7 +74,7 @@
+                         }
+                     }
+                     Spacer()
+-                    Text("\(filteredEvents.count) 条事件")
++                    Text("\(filteredEvents.count) eventi")
+                         .font(.caption2.monospacedDigit())
+                         .foregroundStyle(.secondary)
+                 }
+@@ -88,9 +88,9 @@
+                         Image(systemName: "waveform.path.ecg.rectangle")
+                             .font(.system(size: 40))
+                             .foregroundStyle(RelocTheme.accent.opacity(0.6))
+-                        Text("暂无协议事件")
++                        Text("Nessun evento di protocollo")
+                             .font(.headline)
+-                        Text("开始定位或连接验证后，这里会实时展示连接握手与 NMEA 数据流。")
++                        Text("Dopo l'avvio della localizzazione o della verifica della connessione, qui vengono mostrati in tempo reale l'handshake di connessione e il flusso dati NMEA.")
+                             .font(.caption)
+                             .foregroundStyle(.secondary)
+                             .multilineTextAlignment(.center)
+@@ -137,9 +137,9 @@
+                 }
+             }
+             .background(Color(.systemGroupedBackground))
+-            .navigationTitle("定位实测与日志")
++            .navigationTitle("Test e log di localizzazione")
+             .navigationBarTitleDisplayMode(.inline)
+-            .searchable(text: $filterText, prompt: "筛选事件（如 FFFA / acknowledged）")
++            .searchable(text: $filterText, prompt: "Filtra eventi (es. FFFA / acknowledged)")
+             .toolbar {
+                 ToolbarItemGroup(placement: .navigationBarTrailing) {
+                     Button {
+@@ -170,9 +170,9 @@
+             HStack(spacing: 8) {
+                 SettingsIconBadge(systemName: "sensor.tag.radiowaves.forward.fill", color: monitor.isMonitoring ? RelocTheme.emerald : RelocTheme.accent)
+                 VStack(alignment: .leading, spacing: 1) {
+-                    Text("CoreLocation 实时实测")
++                    Text("Test CoreLocation in tempo reale")
+                         .font(.subheadline.weight(.semibold))
+-                    Text(monitor.isMonitoring ? "正在实时读取系统上报定位来源" : "验证系统是否识别为外设 GPS")
++                    Text(monitor.isMonitoring ? "Lettura in tempo reale della sorgente di localizzazione riportata dal sistema" : "Verifica se il sistema riconosce il GPS come accessorio")
+                         .font(.caption2)
+                         .foregroundStyle(.secondary)
+                 }
+@@ -185,7 +185,7 @@
+                         monitor.requestAndStart()
+                     }
+                 } label: {
+-                    Text(monitor.isMonitoring ? "停止" : "开始实测")
++                    Text(monitor.isMonitoring ? "Interrompi" : "Avvia test")
+                         .font(.caption.weight(.semibold))
+                         .padding(.horizontal, 12)
+                         .padding(.vertical, 6)
+@@ -199,26 +199,26 @@
+ 
+             if let t = monitor.latest {
+                 HStack(spacing: 8) {
+-                    telemetryMetric(label: "纬度 / 经度", value: String(format: "%.5f, %.5f", t.latitude, t.longitude))
+-                    telemetryMetric(label: "精度 / 海拔", value: String(format: "±%.1fm · %.0fm", t.horizontalAccuracy, t.altitude))
++                    telemetryMetric(label: "Latitudine / Longitudine", value: String(format: "%.5f, %.5f", t.latitude, t.longitude))
++                    telemetryMetric(label: "Precisione / Altitudine", value: String(format: "±%.1fm · %.0fm", t.horizontalAccuracy, t.altitude))
+                 }
+ 
+                 HStack(spacing: 8) {
+                     flagBadge(
+-                        title: "软件模拟",
++                        title: "Simulazione software",
+                         key: "isSimulatedBySoftware",
+                         value: t.isSimulatedBySoftware,
+                         goodWhen: false
+                     )
+                     flagBadge(
+-                        title: "外设来源",
++                        title: "Da accessorio",
+                         key: "isProducedByAccessory",
+                         value: t.isProducedByAccessory,
+                         goodWhen: true
+                     )
+                 }
+             } else {
+-                Text("点击右上角「开始实测」，即可实时查看 iOS `sourceInformation` 中的软件模拟与外设定位标记。")
++                Text("Toccare «Avvia test» in alto a destra per vedere in tempo reale i flag di simulazione software e localizzazione da accessorio in `sourceInformation` di iOS.")
+                     .font(.caption)
+                     .foregroundStyle(.secondary)
+             }
+--- a/Reloc/UI/RelocApp.swift
++++ b/Reloc/UI/RelocApp.swift
+@@ -25,19 +25,19 @@
+                 TabView(selection: $selectedTab) {
+                     MapPickerView(viewModel: viewModel, switchToConfig: { selectedTab = 1 })
+                         .tabItem {
+-                            Label("定位", systemImage: "location.north.circle.fill")
++                            Label("Localizzazione", systemImage: "location.north.circle.fill")
+                         }
+                         .tag(0)
+ 
+                     ConfigurationView(viewModel: viewModel)
+                         .tabItem {
+-                            Label("设备连接", systemImage: "antenna.radiowaves.left.and.right")
++                            Label("Connessione dispositivo", systemImage: "antenna.radiowaves.left.and.right")
+                         }
+                         .tag(1)
+ 
+                     ProtocolLogsView(viewModel: viewModel)
+                         .tabItem {
+-                            Label("实测与日志", systemImage: "waveform.path.ecg")
++                            Label("Test e log", systemImage: "waveform.path.ecg")
+                         }
+                         .tag(2)
+                 }
+@@ -47,11 +47,11 @@
+                 }
+             }
+         }
+-        .alert("提示", isPresented: Binding(
++        .alert("Avviso", isPresented: Binding(
+             get: { viewModel.alertMessage != nil },
+             set: { if !$0 { viewModel.alertMessage = nil } }
+         )) {
+-            Button("确定", role: .cancel) {
++            Button("OK", role: .cancel) {
+                 viewModel.alertMessage = nil
+             }
+         } message: {
+@@ -78,14 +78,14 @@
+             }
+ 
+             VStack(spacing: 10) {
+-                Text("当前设备不可用")
++                Text("Dispositivo corrente non disponibile")
+                     .font(.title2.weight(.bold))
+ 
+-                Text("Reloc 仅支持 iPhone")
++                Text("Reloc supporta solo iPhone")
+                     .font(.subheadline.weight(.semibold))
+                     .foregroundStyle(RelocTheme.amber)
+ 
+-                Text("Reloc 依赖 iOS 的 CarKit（com.apple.carkit.service）外设定位通道向系统注入 GPS 坐标。由于 iPadOS 不支持 CarPlay 且未提供该系统服务，此应用无法在 iPad 上运行定位模拟。")
++                Text("Reloc si basa sul canale di localizzazione da accessorio CarKit di iOS (com.apple.carkit.service) per iniettare coordinate GPS nel sistema. Poiché iPadOS non supporta CarPlay e non fornisce questo servizio di sistema, l'app non può eseguire la simulazione della localizzazione su iPad.")
+                     .font(.footnote)
+                     .foregroundStyle(.secondary)
+                     .multilineTextAlignment(.center)
+--- a/Reloc/UI/WebMercatorMapView.swift
++++ b/Reloc/UI/WebMercatorMapView.swift
+@@ -4,7 +4,7 @@
+ import UIKit
+ 
+ /// Pure UIKit Web Mercator (EPSG:3857) tile map view for WGS-84 global tile sources.
+-/// Completely independent of `MKMapView` so Apple China GeoServices / AutoNavi ("高德地图")
++/// Completely independent of `MKMapView` so Apple China GeoServices / AutoNavi ("Mappa AutoNavi")
+ /// logos and GCJ-02 shifts never appear.
+ struct WebMercatorMapView: UIViewRepresentable {
+     let activeCoordinate: CLLocationCoordinate2D
+--- a/project.yml
++++ b/project.yml
+@@ -76,12 +76,12 @@
+           - UIInterfaceOrientationPortraitUpsideDown
+           - UIInterfaceOrientationLandscapeLeft
+           - UIInterfaceOrientationLandscapeRight
+-        NSLocalNetworkUsageDescription: Reloc 通过本地网络发现这台设备并完成配对，回环由你的外部代理提供。
++        NSLocalNetworkUsageDescription: Reloc individua questo dispositivo tramite la rete locale e completa l'abbinamento; il loopback è fornito dal tuo proxy esterno.
+         NSBonjourServices:
+           - _remotepairing-pairable-host._tcp
+           - _remotepairing._tcp
+-        NSLocationWhenInUseUsageDescription: 定位注入期间用于保持 Reloc 在后台运行并触发系统定位服务订阅。
+-        NSLocationAlwaysAndWhenInUseUsageDescription: 定位注入期间用于保持 Reloc 在后台持续运行并防止系统挂起导致定位失效。
++        NSLocationWhenInUseUsageDescription: Usata per mantenere Reloc in esecuzione in background durante l'iniezione della localizzazione e attivare la sottoscrizione dei servizi di localizzazione di sistema.
++        NSLocationAlwaysAndWhenInUseUsageDescription: Usata per mantenere Reloc in esecuzione continua in background durante l'iniezione della localizzazione e impedire che la sospensione del sistema ne causi l'interruzione.
+         UIBackgroundModes:
+           - location
+           - audio
+--- a/Reloc/Info.plist
++++ b/Reloc/Info.plist
+@@ -53,11 +53,11 @@
+ 		<string>_remotepairing._tcp</string>
+ 	</array>
+ 	<key>NSLocalNetworkUsageDescription</key>
+-	<string>Reloc 通过本地网络发现这台设备并完成配对，回环由你的外部代理提供。</string>
++	<string>Reloc individua questo dispositivo tramite la rete locale e completa l'abbinamento; il loopback è fornito dal tuo proxy esterno.</string>
+ 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+-	<string>定位注入期间用于保持 Reloc 在后台持续运行并防止系统挂起导致定位失效。</string>
++	<string>Usata per mantenere Reloc in esecuzione continua in background durante l'iniezione della localizzazione e impedire che la sospensione del sistema ne causi l'interruzione.</string>
+ 	<key>NSLocationWhenInUseUsageDescription</key>
+-	<string>定位注入期间用于保持 Reloc 在后台运行并触发系统定位服务订阅。</string>
++	<string>Usata per mantenere Reloc in esecuzione in background durante l'iniezione della localizzazione e attivare la sottoscrizione dei servizi di localizzazione di sistema.</string>
+ 	<key>UIApplicationSupportsIndirectInputEvents</key>
+ 	<true/>
+ 	<key>UIBackgroundModes</key>

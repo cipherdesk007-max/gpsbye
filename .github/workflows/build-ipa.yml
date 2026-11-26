@@ -1,0 +1,111 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_APP: /Applications/Xcode_16.4.app   # stesso Xcode dell'IPA TDS 1.5 originale
+  SCHEME: TDS Video
+  PROJECT: TDS Video.xcodeproj
+
+jobs:
+  ipa:
+    name: IPA per SideStore
+    runs-on: macos-15
+    timeout-minutes: 40
+    outputs:
+      tag: ${{ steps.rel.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seleziona Xcode
+        run: |
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
+
+      - name: Pacchetti Swift
+        run: xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme "$SCHEME"
+
+      - name: Archive (iPhoneOS, senza firma)
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project "$PROJECT" -scheme "$SCHEME" \
+            -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/FMLAB.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' CODE_SIGN_ENTITLEMENTS='' DEVELOPMENT_TEAM='' \
+            | tee build/archive.log | grep -E "error:|warning: .*deprecated|\*\* ARCHIVE" || true
+          grep -q "ARCHIVE SUCCEEDED" build/archive.log
+
+      - name: Errori di compilazione (se fallisce)
+        if: failure()
+        run: grep -n -B2 -A6 "error:" build/archive.log | head -200 || true
+
+      - name: Impacchetta IPA
+        run: bash packaging/package-ipa.sh build/FMLAB.xcarchive build/FMLAB-CarPlay.ipa
+
+      - name: Release
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${GITHUB_SHA::7}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          gh release create "$TAG" build/FMLAB-CarPlay.ipa \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "FMLAB CarPlay — build ${GITHUB_SHA::7}" \
+            --notes "IPA per SideStore (firma ad-hoc con permessi CarPlay incorporati). Uso personale: base TDS Video 1.2.5 di Thomas Dye." \
+          || gh release upload "$TAG" build/FMLAB-CarPlay.ipa --clobber
+
+  screenshots:
+    name: Screenshot dal simulatore
+    needs: ipa
+    runs-on: macos-15
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seleziona Xcode
+        run: sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+
+      - name: Build per simulatore
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project "$PROJECT" -scheme "$SCHEME" \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO \
+            | tail -5
+
+      - name: Avvia, fotografa, carica
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.ipa.outputs.tag }}
+        run: |
+          set -euxo pipefail
+          APP="$(find build/dd/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' | head -1)"
+          DEV="$(xcrun simctl list devices available | grep -E 'iPhone 16 Pro Max|iPhone 16 Pro|iPhone 1[56]' | head -1 | grep -oE '[0-9A-F-]{36}')"
+          xcrun simctl boot "$DEV"
+          xcrun simctl bootstatus "$DEV" -b
+          xcrun simctl status_bar "$DEV" override --time 18:42 --batteryLevel 100 --cellularBars 4 || true
+          xcrun simctl install "$DEV" "$APP"
+          xcrun simctl privacy "$DEV" grant location it.fmlab.carplay || true
+          mkdir -p shots
+          xcrun simctl launch "$DEV" it.fmlab.carplay
+          sleep 12; xcrun simctl io "$DEV" screenshot shots/iphone-1-avvio.png
+          sleep 10; xcrun simctl io "$DEV" screenshot shots/iphone-2-dopo-20s.png
+          gh release upload "$TAG" shots/*.png --clobber

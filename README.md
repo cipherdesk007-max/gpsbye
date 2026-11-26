@@ -6,7 +6,7 @@ App personale per vedere video e lo schermo dell'iPhone su CarPlay, da installar
 
 - **Base:** [TDS-Carplay](https://github.com/thomasdye12/TDS-Carplay) di Thomas Dye, tag `1.2.5` (lo stesso dell'IPA *TDS Video 1.5*).
   La sua licenza consente solo l'**uso personale e non commerciale** e **vieta la ridistribuzione**: questa app non va pubblicata (Senumy compreso) senza il suo permesso.
-- In arrivo: funzioni YouTube da [CarTube](https://github.com/Avangelista/CarTube) (GPLv3).
+- Script YouTube da [CarTube](https://github.com/Avangelista/CarTube): AdGuard Block YouTube Ads (GPLv3) e Simple Sponsor Skipper (AGPLv3); licenza in `licenses/`.
 
 ## Funzioni FMLAB
 
@@ -16,6 +16,18 @@ App personale per vedere video e lo schermo dell'iPhone su CarPlay, da installar
 - **Chiamate**: durante una chiamata lo schermo FMLAB mostra "Chiamata in corso".
 - **Sfondi**: Campagna, Metropoli notturna, Synthwave, Fantasy, oppure un'immagine dal rullino; ancorati in basso per non tagliare il logo sugli schermi 8:3.
 - **App sul telefono**: elenco personalizzabile (aggiungi, elimina, riordina) per aprire le app da mostrare con la specchiatura; quelle con DRM sono segnalate.
+
+- **Home FMLAB sullo schermo dell'auto** (1.4): orologio, data, riquadri grandi per specchiatura, YouTube, browser, sfondo e le tue app; passa da sola alla specchiatura quando la avvii.
+- **Telecomando auto** sull'iPhone: Home, Schermo, YouTube, Web, sfondo successivo; funziona anche se l'auto non passa i tocchi.
+- **YouTube senza pubblicità e sponsor** nel browser dell'auto (script AdGuard e SponsorBlock da CarTube).
+- **App installate trovate da sola** (1.3): catalogo di 46 app controllate con `canOpenURL`.
+
+## Correzioni rispetto a TDS 1.2.5
+
+- Con la specchiatura attiva, browser e video tornavano subito alla specchiatura: ora restano.
+- La stessa vista veniva registrata a ogni ritorno alla specchiatura e ogni fotogramma era disegnato più volte.
+- Messaggi dei permessi di prova ("test", "t3wrt") e richiesta posizione fuorviante.
+- Posizione in background mancante: il blocco di guida si fermava aprendo un'altra app.
 
 ## Cosa cambia rispetto a TDS 1.2.5
 

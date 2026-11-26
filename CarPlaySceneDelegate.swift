@@ -81,13 +81,22 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
         window.makeKeyAndVisible()
 //        self.interfaceController?.presentTemplate(self.mapTemplate!, animated: true)
         FMLABCarMonitor.shared.setCarPlayScene(connected: true, screenSize: window.bounds.size)
-        loadIOS()
+        FMLABCarRouter.shared.showHomeHandler = { [weak self] in self?.loadFMLABHome(autoMirror: false) }
+        FMLABCarRouter.shared.showMirrorHandler = { [weak self] in self?.loadIOS() }
+        FMLABCarRouter.shared.showWebHandler = { url in
+            if let url { CustomWebViewController.shared.loadURL(url) }
+            TDSVideoShared.shared.CarPlayComp?(.init(type: .web))
+        }
+        // FMLAB: all'avvio la home FMLAB; appena arriva la specchiatura passa da sola a quella
+        loadFMLABHome(autoMirror: true)
         //        print(self.window?.screen)
 //        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: {
 //            //            self.loadWebPage(url: URL(string: "https://thomasdye.net")!)
 //        })
         TDSVideoShared.shared.CarPlayComp = { url in
-            ScreenCaptureManager.shared.IncomingVideoDetected = false
+            // FMLAB: TDS rimetteva sempre false, così con la specchiatura attiva il browser o un
+            // video tornavano subito alla specchiatura. Ora resta su quello che hai scelto.
+            ScreenCaptureManager.shared.IncomingVideoDetected = (url.type != .IOSAPP)
             switch url.type {
             case .video:
                 self.playVideo(url: url.URL!)
@@ -127,6 +136,30 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
                                   didDisconnect interfaceController: CPInterfaceController,
                                   from window: CPWindow) {
         FMLABCarMonitor.shared.setCarPlayScene(connected: false, screenSize: .zero)
+        FMLABCarRouter.shared.showHomeHandler = nil
+        FMLABCarRouter.shared.showMirrorHandler = nil
+        FMLABCarRouter.shared.showWebHandler = nil
+    }
+
+    /// FMLAB: home sullo schermo dell'auto.
+    /// autoMirror = true: se parte la specchiatura dall'iPhone, la mostra subito.
+    func loadFMLABHome(autoMirror: Bool) {
+        guard let window = self.window else { return }
+        for subview in window.subviews {
+            subview.removeFromSuperview()
+        }
+        window.isUserInteractionEnabled = true
+        let vc = UIViewController()
+        vc.view.backgroundColor = .black
+        vc.view.isUserInteractionEnabled = true
+        window.rootViewController = vc
+        let home = FMLABCarHomeView(frame: vc.view.bounds)
+        home.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        vc.view.addSubview(home)
+        // TDS passa alla specchiatura al primo fotogramma solo se questo flag è false
+        ScreenCaptureManager.shared.IncomingVideoDetected = !autoMirror
+        FMLABCarRouter.shared.setMode(.home)
+        FMLABCarOverlay.shared.attach(to: window)
     }
 
     func rawVideo(player:AVPlayer?) {
@@ -143,6 +176,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
             //                playerViewController.
             //                       playerViewController.setupPlayer(url: url)
         }
+        FMLABCarRouter.shared.setMode(.video)
         FMLABCarOverlay.shared.attach(to: self.window)
     }
     
@@ -168,6 +202,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
                     //                playerViewController.
                     playerViewController.setupPlayer(url: url)
                 }
+        FMLABCarRouter.shared.setMode(.video)
         FMLABCarOverlay.shared.attach(to: self.window)
         
         
@@ -213,6 +248,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
  
     func loadWebPage() {
         webViewController = CustomWebViewController.shared.loadViewIncar(self.window)
+        FMLABCarRouter.shared.setMode(.web)
         FMLABCarOverlay.shared.attach(to: self.window)
      
         
@@ -269,6 +305,7 @@ class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPM
              CarPlayVideoImageView.backgroundColor = FMLABCarOverlay.shared.mirrorBackgroundColor
              ScreenCaptureManager.shared.addImageView(imageView: CarPlayVideoImageView,orientation: .init(rawValue: ScreenCaptureManager.shared.selectedOrientation.rawValue) ?? .left)
          }
+        FMLABCarRouter.shared.setMode(.mirror)
         FMLABCarOverlay.shared.attach(to: self.window)
     }
 }

@@ -18,21 +18,30 @@ struct MainView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var showAddApp = false
     @State private var appNotInstalled: String?
+    @State private var carMode: FMLABCarRouter.Mode = FMLABCarRouter.shared.mode
 
     var body: some View {
         NavigationStack {
             List {
                 header
+                remoteSection
                 carSection
                 safetySection
                 wallpaperSection
                 appsSection
+                youtubeSection
                 mirroringSection
                 creditsSection
             }
             .navigationTitle("FMLAB CarPlay")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { monitor.start() }
+            .onAppear {
+                monitor.start()
+                if FMLABCarPreview.requested { FMLABCarPreview.renderAll() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .fmlabCarModeChanged)) { _ in
+                carMode = FMLABCarRouter.shared.mode
+            }
             .onChange(of: photoItem) { _, newItem in
                 guard let newItem else { return }
                 Task {
@@ -84,6 +93,55 @@ struct MainView: View {
             }
             .frame(maxWidth: .infinity)
             .listRowBackground(Color.clear)
+        }
+    }
+
+    private var remoteSection: some View {
+        Section {
+            HStack(spacing: 10) {
+                remoteButton("Home", "house.fill", .home) { FMLABCarRouter.shared.showHome() }
+                remoteButton("Schermo", "rectangle.on.rectangle", .mirror) { FMLABCarRouter.shared.showMirror() }
+                remoteButton("YouTube", "play.rectangle.fill", nil) { FMLABCarRouter.shared.showWeb(FMLABCarRouter.youtubeURL) }
+                remoteButton("Web", "safari.fill", .web) { FMLABCarRouter.shared.showWeb(nil) }
+            }
+            .buttonStyle(.plain)
+            .disabled(!monitor.carPlayConnected)
+            Button {
+                settings.nextWallpaper()
+            } label: {
+                Label("Sfondo successivo", systemImage: "photo.on.rectangle.angled")
+            }
+        } header: {
+            Text("Telecomando auto")
+        } footer: {
+            Text(monitor.carPlayConnected
+                 ? "Sull'auto ora: \(carMode.rawValue). Funziona anche se l'auto non passa i tocchi all'app."
+                 : "Collega CarPlay e apri FMLAB CarPlay sullo schermo dell'auto.")
+        }
+    }
+
+    private func remoteButton(_ title: String, _ symbol: String, _ mode: FMLABCarRouter.Mode?,
+                              action: @escaping () -> Void) -> some View {
+        let active = mode != nil && mode == carMode && monitor.carPlayConnected
+        return Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: symbol).font(.title2)
+                Text(title).font(.caption)
+            }
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .background(active ? Color.accentColor.opacity(0.25) : Color.secondary.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private var youtubeSection: some View {
+        Section {
+            Toggle("Blocca pubblicità (AdGuard)", isOn: $settings.youtubeAdBlock)
+            Toggle("Salta gli sponsor (SponsorBlock)", isOn: $settings.youtubeSponsorBlock)
+        } header: {
+            Text("YouTube sull'auto")
+        } footer: {
+            Text("Script di CarTube, attivi solo su youtube.com nel browser dell'auto. Le modifiche valgono al prossimo avvio dell'app.")
         }
     }
 
@@ -287,13 +345,7 @@ struct MainView: View {
     }
 
     private func open(_ app: FMLABAppShortcut) {
-        var scheme = app.urlScheme.trimmingCharacters(in: .whitespaces)
-        if !scheme.contains("://") { scheme += "://" }
-        guard let url = URL(string: scheme) else {
-            appNotInstalled = app.name
-            return
-        }
-        UIApplication.shared.open(url, options: [:]) { ok in
+        settings.openOnPhone(app) { ok in
             if !ok { appNotInstalled = app.name }
         }
     }

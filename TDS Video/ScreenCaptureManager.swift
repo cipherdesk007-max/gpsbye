@@ -119,6 +119,9 @@ class ScreenCaptureManager: NSObject,ObservableObject {
     
     
     func addImageView(imageView: UIImageView,orientation: UIImage.Orientation = .up) {
+        // FMLAB: TDS aggiungeva la stessa vista a ogni ritorno alla specchiatura,
+        // così ogni fotogramma veniva disegnato più volte. Tieni una sola voce per vista.
+        self.ImageViews.removeAll { $0.imageview === imageView }
         self.ImageViews.append(.init(imageview: imageView, imageorientation: orientation))
     }
     

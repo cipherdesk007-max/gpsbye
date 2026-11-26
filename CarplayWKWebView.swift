@@ -148,6 +148,7 @@ class CustomWebViewController: CarPlayViewControllerProtocol, WKNavigationDelega
         let userScript = WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         let contentController = WKUserContentController()
         contentController.addUserScript(userScript)
+        FMLABWebScripts.install(into: contentController)   // FMLAB: AdGuard + SponsorBlock su YouTube
         config.userContentController = contentController
 
 

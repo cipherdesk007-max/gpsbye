@@ -79,6 +79,7 @@ final class FMLABLockView: UIView {
         super.init(frame: frame)
         // blocca anche i tocchi sullo schermo dell'auto mentre è attivo
         isUserInteractionEnabled = true
+        backgroundColor = UIColor.black.withAlphaComponent(0.45)
         blur.translatesAutoresizingMaskIntoConstraints = false
         addSubview(blur)
         icon.font = .systemFont(ofSize: 64, weight: .heavy)
@@ -130,8 +131,18 @@ final class FMLABCarOverlay {
     private let wallpaperView = FMLABWallpaperView()
     private let badgeView = FMLABBadgeView()
     private let lockView = FMLABLockView()
+    private let homeButton = UIButton(type: .system)
 
     private init() {
+        var cfg = UIButton.Configuration.filled()
+        cfg.title = "Home"
+        cfg.image = UIImage(systemName: "house.fill")
+        cfg.imagePadding = 6
+        cfg.cornerStyle = .capsule
+        cfg.baseBackgroundColor = UIColor.black.withAlphaComponent(0.6)
+        cfg.baseForegroundColor = .white
+        homeButton.configuration = cfg
+        homeButton.addAction(UIAction { _ in FMLABCarRouter.shared.showHome() }, for: .touchUpInside)
         wallpaperView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         lockView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         lockView.isHidden = true
@@ -155,6 +166,14 @@ final class FMLABCarOverlay {
             NSLayoutConstraint.activate([
                 self.badgeView.topAnchor.constraint(equalTo: host.safeAreaLayoutGuide.topAnchor, constant: 10),
                 self.badgeView.trailingAnchor.constraint(equalTo: host.safeAreaLayoutGuide.trailingAnchor, constant: -10),
+            ])
+
+            self.homeButton.removeFromSuperview()
+            self.homeButton.translatesAutoresizingMaskIntoConstraints = false
+            host.addSubview(self.homeButton)
+            NSLayoutConstraint.activate([
+                self.homeButton.bottomAnchor.constraint(equalTo: host.safeAreaLayoutGuide.bottomAnchor, constant: -10),
+                self.homeButton.leadingAnchor.constraint(equalTo: host.safeAreaLayoutGuide.leadingAnchor, constant: 10),
             ])
 
             self.lockView.removeFromSuperview()
@@ -206,7 +225,10 @@ final class FMLABCarOverlay {
         badgeView.label.text = parts.joined(separator: " · ")
         badgeView.isHidden = !settings.showStatusBadge || parts.isEmpty || !lockView.isHidden
 
+        homeButton.isHidden = FMLABCarRouter.shared.mode == .home || !lockView.isHidden
+
         badgeView.superview?.bringSubviewToFront(badgeView)
+        homeButton.superview?.bringSubviewToFront(homeButton)
         lockView.superview?.bringSubviewToFront(lockView)
     }
 }

@@ -44,6 +44,18 @@ final class FMLABSettings: ObservableObject {
         static let threshold = "fmlab.speedThreshold"
         static let badge = "fmlab.statusBadge"
         static let apps = "fmlab.appShortcuts"
+        static let adBlock = "fmlab.youtubeAdBlock"
+        static let sponsor = "fmlab.youtubeSponsorBlock"
+    }
+
+    /// Blocco pubblicità YouTube nel browser dell'auto (script AdGuard, da CarTube).
+    @Published var youtubeAdBlock: Bool {
+        didSet { defaults.set(youtubeAdBlock, forKey: Key.adBlock) }
+    }
+
+    /// Salta i segmenti sponsorizzati (SponsorBlock, da CarTube).
+    @Published var youtubeSponsorBlock: Bool {
+        didSet { defaults.set(youtubeSponsorBlock, forKey: Key.sponsor) }
     }
 
     @Published var wallpaperID: String {
@@ -93,6 +105,8 @@ final class FMLABSettings: ObservableObject {
         let t = defaults.double(forKey: Key.threshold)
         speedThresholdKmh = t > 0 ? t : 5
         showStatusBadge = defaults.object(forKey: Key.badge) as? Bool ?? true
+        youtubeAdBlock = defaults.object(forKey: Key.adBlock) as? Bool ?? true
+        youtubeSponsorBlock = defaults.object(forKey: Key.sponsor) as? Bool ?? true
         if let data = defaults.data(forKey: Key.apps),
            let apps = try? JSONDecoder().decode([FMLABAppShortcut].self, from: data) {
             appShortcuts = apps
@@ -119,7 +133,28 @@ final class FMLABSettings: ObservableObject {
         FMLABAppShortcut(name: "Disney+", urlScheme: "disneyplus://", symbol: "tv.fill", drmProtected: true),
     ]
 
+    // MARK: - App sul telefono
+
+    /// Apre l'app sull'iPhone (anche se il tocco arriva dallo schermo dell'auto).
+    func openOnPhone(_ app: FMLABAppShortcut, completion: ((Bool) -> Void)? = nil) {
+        var scheme = app.urlScheme.trimmingCharacters(in: .whitespaces)
+        if !scheme.contains("://") { scheme += "://" }
+        guard let url = URL(string: scheme) else {
+            completion?(false)
+            return
+        }
+        UIApplication.shared.open(url, options: [:]) { ok in completion?(ok) }
+    }
+
     // MARK: - Sfondi
+
+    /// Passa allo sfondo successivo (anche dal riquadro "Sfondo" sull'auto).
+    func nextWallpaper() {
+        let list = allWallpapers
+        guard !list.isEmpty else { return }
+        let i = list.firstIndex(where: { $0.id == wallpaperID }) ?? 0
+        wallpaperID = list[(i + 1) % list.count].id
+    }
 
     var allWallpapers: [FMLABWallpaper] {
         var list = FMLABWallpaper.builtIn

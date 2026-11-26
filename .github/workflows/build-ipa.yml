@@ -1,0 +1,93 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  build-ipa:
+    name: Compila Reloc · GPSBye (unsigned IPA)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ricostruzione sorgenti + localizzazione italiana
+        run: bash scripts/bootstrap.sh
+
+      - name: Installa XcodeGen
+        run: brew install xcodegen
+
+      - name: Versioni tool
+        run: |
+          xcodebuild -version
+          xcodegen --version
+
+      - name: Genera progetto Xcode
+        run: xcodegen generate
+
+      - name: Archive (unsigned, iPhoneOS)
+        run: |
+          set -euxo pipefail
+          xcodebuild archive \
+            -project Reloc.xcodeproj \
+            -scheme Reloc \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Reloc.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGN_ENTITLEMENTS=''
+
+      - name: Pacchettizza IPA
+        run: |
+          set -euxo pipefail
+          APP="build/Reloc.xcarchive/Products/Applications/Reloc.app"
+          test -d "$APP"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist" || true
+          mkdir -p build/Payload
+          cp -R "$APP" build/Payload/
+          cd build
+          zip -qry Reloc-GPSBye-unsigned.ipa Payload
+          cd ..
+          ls -la build/Reloc-GPSBye-unsigned.ipa
+
+      - name: Crea Release con l'IPA
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG="ipa-${GITHUB_SHA::7}"
+          DATE=$(date '+%Y-%m-%d %H:%M UTC')
+          if ! gh release create "$TAG" \
+              build/Reloc-GPSBye-unsigned.ipa \
+              --target "$GITHUB_SHA" \
+              --title "Reloc · GPSBye IPA (unsigned) — ${DATE}" \
+              --notes "IPA non firmato compilato dai sorgenti localizzati in italiano (bootstrap verificato + checksum SHA-256).
+
+          Per installarlo serve una firma (niente Mac necessario: Sideloadly/AltStore con il tuo Apple ID firmano e installano sul telefono).
+          Attenzione: l'app richiede il proxy esterno con loopback 10.7.0.1 attivo per cambiare la posizione."; then
+            gh release upload "$TAG" build/Reloc-GPSBye-unsigned.ipa --clobber
+          fi
+
+      - name: Segnala fallimento su issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "❌ Build IPA fallita (run ${GITHUB_RUN_NUMBER})" \
+            --body "La workflow **Build IPA** è fallita.
+
+          Log completi: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          Ultimo commit: ${GITHUB_SHA}" || true

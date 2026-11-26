@@ -24,23 +24,40 @@ struct MainView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                header
-                remoteSection
-                carSection
-                safetySection
-                wallpaperSection
-                webAppsSection
-                appsSection
-                youtubeSection
-                mirroringSection
-                creditsSection
+            ScrollViewReader { proxy in
+                List {
+                    header.id("inizio")
+                    remoteSection.id("telecomando")
+                    carSection.id("auto")
+                    safetySection.id("sicurezza")
+                    wallpaperSection.id("sfondi")
+                    webAppsSection.id("appweb")
+                    appsSection.id("app")
+                    youtubeSection.id("youtube")
+                    mirroringSection.id("specchiatura")
+                    creditsSection.id("info")
+                }
+                .onAppear {
+                    // per gli screenshot automatici: -fmlabScrollTo sfondi | app | ...
+                    if let target = UserDefaults.standard.string(forKey: "fmlabScrollTo") {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            proxy.scrollTo(target, anchor: .top)
+                        }
+                    }
+                }
             }
             .navigationTitle("FMLAB CarPlay")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 monitor.start()
                 if FMLABCarPreview.requested { FMLABCarPreview.renderAll() }
+                if FMLABSelfTest.requested { Task { await FMLABSelfTest.run() } }
+                // per gli screenshot automatici: -fmlabOpenSheet addApp | addWeb
+                switch UserDefaults.standard.string(forKey: "fmlabOpenSheet") {
+                case "addApp": showAddApp = true
+                case "addWeb": showAddWebApp = true
+                default: break
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .fmlabCarModeChanged)) { _ in
                 carMode = FMLABCarRouter.shared.mode

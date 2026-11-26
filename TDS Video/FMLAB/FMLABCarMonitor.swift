@@ -158,7 +158,11 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         guard loc.speed >= 0, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy <= 65 else {
             return
         }
-        let kmh = loc.speed * 3.6
+        processSpeed(kmh: loc.speed * 3.6, at: Date())
+    }
+
+    /// Logica di marcia/fermo con isteresi (separata per i test con tempi simulati).
+    func processSpeed(kmh: Double, at now: Date) {
         speedKmh = kmh
         let threshold = FMLABSettings.shared.speedThresholdKmh
         if kmh >= threshold {
@@ -166,12 +170,12 @@ final class FMLABCarMonitor: NSObject, ObservableObject, CLLocationManagerDelega
             belowThresholdSince = nil
         } else if isMoving {
             if let since = belowThresholdSince {
-                if Date().timeIntervalSince(since) >= unlockDelay {
+                if now.timeIntervalSince(since) >= unlockDelay {
                     isMoving = false
                     belowThresholdSince = nil
                 }
             } else {
-                belowThresholdSince = Date()
+                belowThresholdSince = now
             }
         }
         FMLABCarOverlay.shared.refresh()

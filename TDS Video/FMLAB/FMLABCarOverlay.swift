@@ -139,8 +139,23 @@ final class FMLABLockView: UIView {
     }
 }
 
+enum FMLABLockDecision: String, Equatable {
+    case none, driving, call
+}
+
 final class FMLABCarOverlay {
     static let shared = FMLABCarOverlay()
+
+    /// Regola del blocco, separata per poterla testare.
+    /// - chiamata in corso: sempre schermata chiamata
+    /// - in marcia, blocco attivo, niente modalità passeggero, contenuto video/web/specchiatura: blocco
+    /// - la home FMLAB non si blocca (non ha video)
+    static func decide(lockEnabled: Bool, passenger: Bool, moving: Bool,
+                       mode: FMLABCarRouter.Mode, onCall: Bool) -> FMLABLockDecision {
+        if onCall { return .call }
+        if lockEnabled && !passenger && moving && mode != .home { return .driving }
+        return .none
+    }
 
     private weak var window: UIWindow?
     private let wallpaperView = FMLABWallpaperView()
@@ -222,17 +237,15 @@ final class FMLABCarOverlay {
         let settings = FMLABSettings.shared
         let monitor = FMLABCarMonitor.shared
 
-        // la home FMLAB non ha video: resta usabile in marcia, come la home di CarPlay.
-        // Il blocco scatta su specchiatura, browser e video.
-        let showsMedia = FMLABCarRouter.shared.mode != .home
-        let drivingLock = settings.drivingLockEnabled && !settings.passengerMode && monitor.isMoving && showsMedia
-        if monitor.onCall {
+        switch Self.decide(lockEnabled: settings.drivingLockEnabled, passenger: settings.passengerMode,
+                           moving: monitor.isMoving, mode: FMLABCarRouter.shared.mode, onCall: monitor.onCall) {
+        case .call:
             lockView.showCall()
             lockView.isHidden = false
-        } else if drivingLock {
+        case .driving:
             lockView.showDriving(speedKmh: monitor.speedKmh)
             lockView.isHidden = false
-        } else {
+        case .none:
             lockView.isHidden = true
         }
 

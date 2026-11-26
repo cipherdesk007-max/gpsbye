@@ -89,8 +89,12 @@ enum FMLABAppCatalog {
               !bundle.isEmpty else { return nil }
         var name = bundle
         if name.lowercased().hasSuffix(".app") { name = String(name.dropLast(4)) }
-        // "com.google.ios.youtube" -> "youtube"
-        if name.contains("."), let last = name.split(separator: ".").last { name = String(last) }
+        // "com.google.ios.youtube" -> "youtube", "com.shopify.app" -> "shopify"
+        if name.contains(".") {
+            let generic: Set<String> = ["app", "ios", "iphone", "mobile", "client", "com", "net", "org", "it"]
+            let parts = name.split(separator: ".").map(String.init)
+            name = parts.last(where: { !generic.contains($0.lowercased()) }) ?? parts.last ?? name
+        }
         return name.prefix(1).uppercased() + name.dropFirst()
     }
 

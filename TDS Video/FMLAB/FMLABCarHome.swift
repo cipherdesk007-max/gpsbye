@@ -251,14 +251,23 @@ enum FMLABCarPreview {
         render(size: CGSize(width: 1280, height: 480), name: "carpreview-4-passeggero", overlay: .passenger, badge: "Golf 8 · 47 km/h · Passeggero")
         render(size: CGSize(width: 1280, height: 480), name: "carpreview-5-chiamata", overlay: .call, badge: nil)
         render(size: CGSize(width: 1280, height: 480), name: "carpreview-6-notte", overlay: .none, badge: "Golf 8 · 0 km/h", night: true)
+        // Ogni sfondo sulle 3 misure di schermo più comuni, per controllare il taglio del logo
+        let settings = FMLABSettings.shared
+        for wp in FMLABWallpaper.builtIn where wp.bundleFile != nil {
+            for size in [CGSize(width: 800, height: 480), CGSize(width: 1280, height: 480), CGSize(width: 1920, height: 720)] {
+                render(size: size, name: "sfondo-\(wp.id)-\(Int(size.width))x\(Int(size.height))",
+                       overlay: .none, badge: "Golf 8 · 0 km/h", wallpaperImage: settings.image(for: wp))
+            }
+        }
     }
 
-    private static func render(size: CGSize, name: String, overlay: Overlay, badge: String?, night: Bool = false) {
+    private static func render(size: CGSize, name: String, overlay: Overlay, badge: String?, night: Bool = false,
+                               wallpaperImage: UIImage? = nil) {
         let root = UIView(frame: CGRect(origin: .zero, size: size))
         root.backgroundColor = .black
         root.overrideUserInterfaceStyle = night ? .dark : .light
         let wallpaper = FMLABWallpaperView(frame: root.bounds)
-        wallpaper.image = FMLABSettings.shared.currentWallpaperImage
+        wallpaper.image = wallpaperImage ?? FMLABSettings.shared.currentWallpaperImage
         // fuori da una finestra iOS non applica la modalità scura: la forzo per il test
         wallpaper.forceNight = night
         root.addSubview(wallpaper)
@@ -286,7 +295,9 @@ enum FMLABCarPreview {
         root.setNeedsLayout()
         root.layoutIfNeeded()
         root.subviews.forEach { $0.setNeedsLayout(); $0.layoutIfNeeded() }
-        let image = UIGraphicsImageRenderer(bounds: root.bounds).image { ctx in
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1   // pixel = punti dello schermo auto, file leggeri
+        let image = UIGraphicsImageRenderer(bounds: root.bounds, format: format).image { ctx in
             root.layer.render(in: ctx.cgContext)
         }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

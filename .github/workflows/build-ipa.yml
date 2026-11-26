@@ -107,9 +107,24 @@ jobs:
           xcrun simctl privacy "$DEV" grant location it.fmlab.carplay || true
           mkdir -p shots
           # -fmlabCarPreview: l'app renderizza con il suo codice vero lo schermo dell'auto
-          xcrun simctl launch "$DEV" it.fmlab.carplay -fmlabCarPreview
-          sleep 15; xcrun simctl io "$DEV" screenshot shots/iphone-1-avvio.png
+          # -fmlabSelfTest: test automatici di tutte le funzioni dentro l'app
+          xcrun simctl launch "$DEV" it.fmlab.carplay -fmlabCarPreview -fmlabSelfTest
+          sleep 30; xcrun simctl io "$DEV" screenshot shots/iphone-0-avvio.png
           DATA="$(xcrun simctl get_app_container "$DEV" it.fmlab.carplay data)"
           ls -la "$DATA/Documents" || true
-          cp "$DATA"/Documents/carpreview-*.png shots/ || echo "nessuna anteprima auto"
-          gh release upload "$TAG" shots/*.png --clobber
+          cp "$DATA"/Documents/carpreview-*.png "$DATA"/Documents/sfondo-*.png shots/ || echo "nessuna anteprima auto"
+          cp "$DATA"/Documents/fmlab-selftest.txt shots/ || echo "FAIL  resoconto test mancante" > shots/fmlab-selftest.txt
+          echo "::group::Test automatici FMLAB"; cat shots/fmlab-selftest.txt; echo "::endgroup::"
+          # Screenshot reali di ogni sezione personalizzabile
+          n=1
+          for target in telecomando sicurezza sfondi appweb app youtube specchiatura; do
+            xcrun simctl terminate "$DEV" it.fmlab.carplay || true
+            xcrun simctl launch "$DEV" it.fmlab.carplay -fmlabScrollTo "$target"
+            sleep 6; xcrun simctl io "$DEV" screenshot "shots/iphone-$n-$target.png"; n=$((n+1))
+          done
+          for sheet in addApp addWeb; do
+            xcrun simctl terminate "$DEV" it.fmlab.carplay || true
+            xcrun simctl launch "$DEV" it.fmlab.carplay -fmlabOpenSheet "$sheet"
+            sleep 6; xcrun simctl io "$DEV" screenshot "shots/iphone-$n-$sheet.png"; n=$((n+1))
+          done
+          gh release upload "$TAG" shots/*.png shots/fmlab-selftest.txt --clobber

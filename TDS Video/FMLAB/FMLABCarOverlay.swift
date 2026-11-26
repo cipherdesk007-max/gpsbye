@@ -222,7 +222,10 @@ final class FMLABCarOverlay {
         let settings = FMLABSettings.shared
         let monitor = FMLABCarMonitor.shared
 
-        let drivingLock = settings.drivingLockEnabled && !settings.passengerMode && monitor.isMoving
+        // la home FMLAB non ha video: resta usabile in marcia, come la home di CarPlay.
+        // Il blocco scatta su specchiatura, browser e video.
+        let showsMedia = FMLABCarRouter.shared.mode != .home
+        let drivingLock = settings.drivingLockEnabled && !settings.passengerMode && monitor.isMoving && showsMedia
         if monitor.onCall {
             lockView.showCall()
             lockView.isHidden = false

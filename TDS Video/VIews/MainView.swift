@@ -321,7 +321,7 @@ struct MainView: View {
         if !monitor.locationAuthorized {
             return "Senza posizione il blocco non può sapere se l'auto si muove."
         }
-        return "Sopra la soglia il video va in pausa sull'auto e resta solo l'audio. Riprende dopo 4 secondi da fermo."
+        return "Sopra la soglia specchiatura, browser e video vanno in pausa sull'auto e resta solo l'audio; la home FMLAB resta usabile. Riprende dopo 4 secondi da fermo."
     }
 
     private var appVersion: String {

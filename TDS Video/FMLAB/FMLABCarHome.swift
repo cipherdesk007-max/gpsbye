@@ -249,6 +249,8 @@ enum FMLABCarPreview {
         root.overrideUserInterfaceStyle = night ? .dark : .light
         let wallpaper = FMLABWallpaperView(frame: root.bounds)
         wallpaper.image = FMLABSettings.shared.currentWallpaperImage
+        // fuori da una finestra la modalità scura non scende dai genitori: la imposto sulla vista
+        wallpaper.overrideUserInterfaceStyle = night ? .dark : .light
         root.addSubview(wallpaper)
         let home = FMLABCarHomeView(frame: root.bounds)
         root.addSubview(home)

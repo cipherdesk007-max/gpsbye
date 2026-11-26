@@ -38,6 +38,7 @@ struct Help: View {
 3. Usa **Comandi del browser** per muovere il cursore, scorrere e ingrandire.
 """)
                     Text("App web: in «App web sull'auto» trovi Twitch, Google Maps, TikTok, Plex, RaiPlay e puoi aggiungere qualsiasi sito. Si aprono direttamente sull'auto, senza specchiatura.")
+                    Text("App di LiveContainer: in LiveContainer tieni premuta l'app → «Aggiungi alla Schermata Home» → «Copia l'URL d'avvio»; in FMLAB vai su App sul telefono → Aggiungi un'app → Incolla.")
                     Text("Se il volante è a destra, attiva «Guida a destra» in Impostazioni specchiatura.")
                 }
 

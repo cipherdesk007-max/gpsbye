@@ -470,6 +470,9 @@ private struct AddAppShortcutView: View {
     var existingSchemes: Set<String>
     var onAdd: (FMLABAppShortcut) -> Void
     @State private var installed: [FMLABCatalogApp] = []
+    @State private var lcLink = ""
+    @State private var lcName = ""
+    @State private var lcError: String?
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var scheme = ""
@@ -478,6 +481,49 @@ private struct AddAppShortcutView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    HStack {
+                        TextField("livecontainer://livecontainer-launch?…", text: $lcLink)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .font(.footnote)
+                        Button("Incolla") {
+                            lcLink = UIPasteboard.general.string ?? ""
+                        }
+                    }
+                    .onChange(of: lcLink) { _, newValue in
+                        lcError = nil
+                        if let guess = FMLABAppCatalog.liveContainerAppName(from: newValue), lcName.isEmpty {
+                            lcName = guess
+                        }
+                    }
+                    TextField("Nome (es. Shopify)", text: $lcName)
+                    if let lcError {
+                        Text(lcError).font(.caption).foregroundStyle(Color.red)
+                    }
+                    Button {
+                        let link = lcLink.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard FMLABAppCatalog.liveContainerAppName(from: link) != nil else {
+                            lcError = "Non è un URL d'avvio di LiveContainer."
+                            return
+                        }
+                        let name = lcName.trimmingCharacters(in: .whitespaces)
+                        onAdd(FMLABAppShortcut(name: name.isEmpty ? "App" : name, urlScheme: link,
+                                               symbol: "shippingbox", drmProtected: false))
+                        lcLink = ""
+                        lcName = ""
+                    } label: {
+                        Label("Aggiungi app di LiveContainer", systemImage: "shippingbox.fill")
+                    }
+                    .disabled(lcLink.isEmpty)
+                } header: {
+                    Text("Da LiveContainer")
+                } footer: {
+                    Text(FMLABAppCatalog.liveContainerInstalled
+                         ? "In LiveContainer tieni premuta l'app → «Aggiungi alla Schermata Home» → «Copia l'URL d'avvio», poi torna qui e tocca Incolla. Dall'auto FMLAB la apre dentro LiveContainer: con la specchiatura attiva la vedi sullo schermo dell'auto."
+                         : "LiveContainer non risulta installato su questo iPhone.")
+                }
+
                 Section {
                     if installed.isEmpty {
                         Text("Nessuna nuova app del catalogo trovata su questo iPhone.")

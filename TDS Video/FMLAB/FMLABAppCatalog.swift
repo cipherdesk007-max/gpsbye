@@ -72,12 +72,32 @@ enum FMLABAppCatalog {
         .init(name: "Firefox", scheme: "firefox", symbol: "flame.fill", drm: false, category: "Lavoro"),
         .init(name: "Google Foto", scheme: "googlephotos", symbol: "photo.fill", drm: false, category: "Lavoro"),
         .init(name: "Google Drive", scheme: "googledrive", symbol: "externaldrive.fill", drm: false, category: "Lavoro"),
+        // Contenitori
+        .init(name: "LiveContainer", scheme: "livecontainer", symbol: "shippingbox.fill", drm: false, category: "Utilità"),
         // Giochi
         .init(name: "Steam Link", scheme: "steamlink", symbol: "gamecontroller.fill", drm: false, category: "Giochi"),
         .init(name: "Steam", scheme: "steam", symbol: "gamecontroller.fill", drm: false, category: "Giochi"),
         .init(name: "Xbox", scheme: "xbox", symbol: "gamecontroller.fill", drm: false, category: "Giochi"),
         .init(name: "PS Remote Play", scheme: "psremoteplay", symbol: "gamecontroller.fill", drm: false, category: "Giochi"),
     ]
+
+    /// "livecontainer://livecontainer-launch?bundle-name=YouTube.app" -> nome leggibile ("YouTube").
+    static func liveContainerAppName(from link: String) -> String? {
+        guard let comps = URLComponents(string: link.trimmingCharacters(in: .whitespacesAndNewlines)),
+              comps.host == "livecontainer-launch",
+              let bundle = comps.queryItems?.first(where: { $0.name == "bundle-name" })?.value,
+              !bundle.isEmpty else { return nil }
+        var name = bundle
+        if name.lowercased().hasSuffix(".app") { name = String(name.dropLast(4)) }
+        // "com.google.ios.youtube" -> "youtube"
+        if name.contains("."), let last = name.split(separator: ".").last { name = String(last) }
+        return name.prefix(1).uppercased() + name.dropFirst()
+    }
+
+    static var liveContainerInstalled: Bool {
+        guard let url = URL(string: "livecontainer://") else { return false }
+        return UIApplication.shared.canOpenURL(url)
+    }
 
     /// App del catalogo installate su questo iPhone.
     static func installed() -> [FMLABCatalogApp] {

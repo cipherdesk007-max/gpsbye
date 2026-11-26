@@ -166,7 +166,9 @@ final class FMLABCarHomeView: UIView {
                 FMLABSettings.shared.nextWallpaper()
             },
         ]
-        for app in FMLABSettings.shared.appShortcuts.prefix(8) {
+        // YouTube c'è già come riquadro FMLAB (browser senza pubblicità): niente doppione
+        let favorites = FMLABSettings.shared.appShortcuts.filter { fmlabNormalizedScheme($0.urlScheme) != "youtube" }
+        for app in favorites.prefix(8) {
             list.append(FMLABTile(title: app.name, symbol: app.symbol,
                                   tint: app.drmProtected ? .systemOrange : .white) {
                 FMLABSettings.shared.openOnPhone(app)

@@ -28,14 +28,8 @@ jobs:
       - name: Ricostruzione sorgenti + localizzazione italiana
         run: bash scripts/bootstrap.sh
 
-      - name: Fix di compilazione (solo annotazione di tipo, logica invariata)
-        run: |
-          set -euo pipefail
-          f=Reloc/Core/Swift/RelocViewModel.swift
-          n=$(grep -c '^            let name = (json\["name"\] as? String)' "$f")
-          test "$n" = 1
-          perl -pi -e 's/^            let name = \(json\["name"\] as\? String\)/            let name: String? = (json["name"] as? String)/' "$f"
-          grep -n 'let name: String? = (json' "$f"
+      - name: Fix di compilazione (type-checker, logica invariata)
+        run: python3 scripts/fix-typecheck.py
 
       - name: Installa XcodeGen
         run: brew install xcodegen

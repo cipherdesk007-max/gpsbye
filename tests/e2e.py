@@ -60,7 +60,7 @@ with sync_playwright() as p:
     a.evaluate("FMLAB.debug.encounterRate = 0; FMLAB.save.pos = {x:15,y:40}")
     # lotta selvatica
     a.evaluate('FMLAB.debug.fast = true')
-    a.evaluate("FMLAB.startWild('fiammino', 4, 'prato')"); a.wait_for_timeout(150)
+    a.evaluate("FMLAB.startWild('fiammino', 9, 'prato')"); a.wait_for_timeout(150)
     a.evaluate('FMLAB.debug.fast = false')
     a.screenshot(path=OUT + '05-lotta-incontro.png')
     check('Si apre la lotta', a.evaluate('FMLAB.screen') == 'battle')
@@ -87,12 +87,12 @@ with sync_playwright() as p:
     check('Visore 3D dall\'archivio', a.evaluate('FMLAB.screen') == 'viewer' and a.locator('#viewer3d canvas').count() == 1)
     a.evaluate('FMLAB.showDex()')
     # evoluzione: battaglia vinta con esperienza alta
-    a.evaluate("(() => { const m = FMLAB.save.team[0]; m.xp = 1380; })()")  # vicino al livello 12
+    a.evaluate("(() => { FMLAB.save.team.forEach(x => { x.hp = x.maxhp; x.status = null; }); const m = FMLAB.save.team[0]; m.xp = 1380; })()")  # vicino al livello 12, squadra curata
     a.evaluate('FMLAB.debug.fast = true')
     a.evaluate("FMLAB.startWild('semino', 2, 'prato')")
     for _ in range(8):
         if a.evaluate('FMLAB.screen') != 'battle' or a.locator('#endBtn').count(): break
-        if a.locator('.move').count(): a.locator('.move').first.click()
+        if a.locator('.move').count(): a.evaluate("(() => { const bs = [...document.querySelectorAll('.move')]; bs.sort((x, y) => (FMLABEngine.MOVES[y.dataset.m].power || 0) - (FMLABEngine.MOVES[x.dataset.m].power || 0)); bs[0].click(); })()")
         a.wait_for_timeout(300)
     a.evaluate('FMLAB.debug.fast = false')
     sp = a.evaluate('FMLAB.save.team[0].species'); lv = a.evaluate('FMLAB.save.team[0].level')
@@ -219,10 +219,13 @@ with sync_playwright() as p:
     check('Allenatore: parte la lotta contro Rocco (niente fuga, niente cattura)', st.evaluate('FMLAB.screen') == 'battle' and st.evaluate('FMLAB.battle.mode') == 'trainer' and st.locator('#aCatch').count() == 0 and st.locator('#aRun').count() == 0)
     def win_trainer(pg_):
         for _ in range(30):
+            if os.environ.get('FMLAB_DEBUG'): print('DBG', pg_.evaluate("(() => { const B = FMLAB.battle; if (!B) return 'nessuna lotta'; const s = B.state || B.view; return FMLAB.screen + ' panel=' + B.panel + ' ' + s.sides.map(sd => sd.team.map(m => m.species + ':' + m.hp + (m.status ? '(' + m.status + ')' : '')).join(',') + ' act' + sd.active).join(' | ') + ' win=' + s.winner + ' dlg=' + FMLAB.dialog.open; })()"), pg_.inner_text('#log')[:60].replace(chr(10), ' ') if pg_.locator('#log').count() else '')
             if pg_.evaluate('FMLAB.screen') != 'battle' or pg_.locator('#endBtn').count(): break
             if pg_.evaluate('FMLAB.dialog.open'): pg_.evaluate('FMLAB.skipDialog()')
-            pg_.evaluate("FMLAB.battle.state.sides[1].team.forEach(m => { m.hp = Math.min(m.hp, 1); }); FMLAB.battle.state.sides[0].team.forEach(m => { m.hp = m.maxhp; })")
-            if pg_.locator('.move').count(): pg_.locator('.move').first.click()
+            pg_.evaluate("FMLAB.battle.state.sides[1].team.forEach(m => { m.hp = Math.min(m.hp, 1); m.atk = 1; }); FMLAB.battle.state.sides[0].team.forEach(m => { m.hp = m.maxhp; m.status = null; m.slpT = 0; })")
+            if pg_.locator('.move').count():
+                # la mossa più forte (le mosse di stato non fanno danno)
+                pg_.evaluate("(() => { const bs = [...document.querySelectorAll('.move')]; bs.sort((a, b) => (FMLABEngine.MOVES[b.dataset.m].power || 0) - (FMLABEngine.MOVES[a.dataset.m].power || 0)); bs[0].click(); })()")
             pg_.wait_for_timeout(250)
         for _ in range(20):
             if pg_.locator('#endBtn').count(): break

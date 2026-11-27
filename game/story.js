@@ -68,7 +68,7 @@
     },
     {
       id: 'flora', kind: 'guardian', badge: 'prato', name: 'Flora', title: 'Guardiana del Prato', look: 'guardiano_prato', at: [35, 1], ai: 'esperto', needs: ['rival1'],
-      team: [['semino', 7], ['fogliardo', 12]],
+      team: [['semino', 8], ['fogliardo', 10]],
       intro: ['Sono Flora, custode del Cristallo Verde.', 'Il prato insegna la pazienza: vediamo se sai aspettare il momento giusto.'],
       defeat: ['Le tue creature crescono sane. Prendi la Medaglia Foglia.', 'Con questa la guardia ti lascerà passare il ponte sul fiume.'],
       after: ['Il fiume è più insidioso del prato: le creature d\'acqua resistono al fuoco.'],
@@ -149,7 +149,7 @@
     },
     {
       id: 'aurelio', kind: 'champion', badge: 'campione', name: 'Aurelio', title: 'Campione', look: 'campione', at: [2, 1], ai: 'esperto', needs: ['grotta'],
-      team: [['fulmix', 26], ['spettrax', 27], ['abissaro', 28], ['silvatron', 28], ['vulkarn', 30]],
+      team: [['fulmix', 27], ['spettrax', 28], ['abissaro', 29], ['silvatron', 29], ['vulkarn', 31]],
       intro: ['Quattro medaglie. Erano anni che nessuno arrivava fin qui.', 'Dietro di me c\'è il Cristallo Madre. Per riaccenderlo serve un cuore che non si arrende.', 'Fammi vedere il tuo.'],
       defeat: ['Il Cristallo si sta riaccendendo… lo senti?', 'Da oggi il Campione sei tu, {nome}. La Corona è tua.'],
       after: ['Il Cristallo Madre brilla di nuovo. Ora completa l\'Archivio e sfida i tuoi amici online!'],

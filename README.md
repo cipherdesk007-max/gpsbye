@@ -66,17 +66,24 @@ python3 -m http.server 8765
 ```
 poi apri `http://localhost:8765/game/index.html`. Senza URL del server le sfide girano in **modalità locale**: per provarle apri il gioco in due schede dello stesso browser.
 
-## Mettere online le sfide (Google Apps Script)
+## Mettere online il gioco (Google Apps Script)
 
-1. `bash scripts/build-apps-script.sh` → prepara `backend/dist/`.
-2. Vai su script.google.com → **Nuovo progetto**.
-3. Crea tre file e incolla il contenuto di `Code.gs`, `engine.gs` e `servercore.gs` da `backend/dist/`. In *Impostazioni progetto* attiva «Mostra il file manifest» e incolla `appsscript.json`.
-4. **Esegui il deployment › Nuovo deployment › App web**: *Esegui come* = Me, *Chi ha accesso* = Chiunque.
-5. Copia l'URL che finisce con `/exec`.
-6. Nel gioco: **Sfide › Server**, incolla l'URL, «Salva e prova». Devi vedere «Collegato ✓».
-7. I tuoi amici fanno lo stesso con **lo stesso URL**. Uno crea la sfida, l'altro inserisce il codice.
+Un solo link Google fa tutto: apre il gioco sul telefono ed è il server delle sfide, della Sala Online e della classifica.
 
-Le stanze vivono nelle proprietà dello script (niente fogli Google da preparare) e si cancellano da sole dopo 24 ore. La funzione `azzeraTutto` nell'editor azzera stanze e classifica.
+1. `node scripts/build-web.js` → prepara `backend/dist/` (5 file).
+2. Vai su script.google.com → **Nuovo progetto** e chiamalo «FMLAB Monsters».
+3. Nel progetto crea e incolla:
+   - file script `Code.gs`, `engine.gs`, `servercore.gs`;
+   - file HTML chiamato `Index` (diventa `Index.html`) col contenuto di `backend/dist/Index.html`;
+   - in *Impostazioni progetto* attiva «Mostra il file manifest» e incolla `appsscript.json`.
+4. **Esegui il deployment › Nuovo deployment › App web**: *Esegui come* = Me, *Chi ha accesso* = Chiunque. Google ti chiede di autorizzare lo script la prima volta.
+5. Copia l'URL che finisce con `/exec` e mandalo ai tuoi amici. Aperto dal telefono è già il gioco online: niente URL da incollare.
+6. Su iPhone: Safari → Condividi → «Aggiungi alla schermata Home». Su Android: menu di Chrome → «Aggiungi a schermata Home».
+7. Per le app IPA/APK: su GitHub, *Settings › Variables › Actions* crea `FMLAB_SERVER_URL` con lo stesso URL `/exec`, poi *Actions › App › Run workflow*.
+
+Ogni volta che cambi il gioco: rifai il punto 1, reincolla i file e **Gestisci deployment › Modifica › Nuova versione** (l'URL resta lo stesso).
+
+Stanze, presenze e inviti vivono nelle proprietà dello script (niente fogli Google) e si cancellano da soli (stanze dopo 24 ore, presenze dopo 10 minuti, inviti dopo 10 minuti). La funzione `azzeraTutto` nell'editor azzera tutto.
 
 ## Anti-imbroglio
 

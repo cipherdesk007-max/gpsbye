@@ -32,8 +32,37 @@
   const debug = { catchLuck: null, encounterRate: null, fast: false, hour: null, noLife: false, weather: null, noStory: !!window.__FMLAB_NOSTORY };
   const storyOn = () => !!(ST && save && !debug.noStory);
 
+  // ---------- Audio, vibrazione, impostazioni ----------
+  const AU = window.FMLABAudio || { sfx() {}, music() {}, unlock() {}, stop() {}, buzz() {}, setMusic() {}, setSfx() {}, setVibra() {} };
+  const sfx = (n) => { try { AU.sfx(n); } catch (e) { /* muto */ } };
+  const buzz = (p) => { if (!debug.fast) try { AU.buzz(p); } catch (e) { /* ok */ } };
+  const fx = { damage: 0, banners: 0, wipes: 0, evolutions: 0, victories: 0, shakes: 0 };
+  function defaultSettings() { return { music: AU.musicVol != null ? AU.musicVol : 0.6, sfx: AU.sfxVol != null ? AU.sfxVol : 0.8, vibra: AU.vibra !== false, quality: 'auto', fastText: false }; }
+  function applySettings() {
+    if (!save) return;
+    // si completa l'oggetto esistente (chi lo tiene in mano, come la schermata Impostazioni, lo vede aggiornato)
+    const def = defaultSettings();
+    save.settings = save.settings || {};
+    Object.keys(def).forEach((k) => { if (save.settings[k] == null) save.settings[k] = def[k]; });
+    const st0 = save.settings;
+    AU.setMusic(st0.music); AU.setSfx(st0.sfx); AU.setVibra(st0.vibra);
+    if (G3 && use3D) G3.quality = st0.quality === 'auto' ? 'auto' : st0.quality;
+  }
+  function musicForMap() {
+    if (!save) return;
+    const z = zoneAt(save.pos.y), h = hourNow(), night = h >= 20.5 || h < 5.5;
+    AU.music(z === 'grotta' ? 'grotta' : night ? 'notte' : z === 'citta' ? 'borgo' : z === 'bosco' ? 'bosco' : 'percorso');
+  }
+  setInterval(() => { if (screen === 'map') musicForMap(); }, 60000);
+  // suono dei tasti (le mosse e le frecce hanno i loro)
+  document.addEventListener('click', (e) => {
+    const b = e.target && e.target.closest && e.target.closest('button');
+    if (!b || b.classList.contains('move') || b.closest('.dpad')) return;
+    sfx(b.id === 'back' || b.id === 'ccClose' || b.id === 'invNo' ? 'indietro' : 'tasto');
+  }, true);
+
   function defaultSave(name) {
-    return { v: 2, name, team: [], box: [], capsules: 5, pos: { x: Wd.start.x, y: Wd.start.y }, items: {}, gift: '', pid: newPid(), story: newStory(), serverUrl: '', seen: {}, caught: {}, steps: 0, wins: 0, losses: 0 };
+    return { v: 2, settings: defaultSettings(), name, team: [], box: [], capsules: 5, pos: { x: Wd.start.x, y: Wd.start.y }, items: {}, gift: '', pid: newPid(), story: newStory(), serverUrl: '', seen: {}, caught: {}, steps: 0, wins: 0, losses: 0 };
   }
   function newStory() { return { intro: false, beaten: {}, badges: {}, starter: null, playMs: 0 }; }
   function newPid() { let s0 = ''; while (s0.length < 12) s0 += Math.random().toString(36).slice(2); return s0.replace(/[^a-z0-9]/g, '').slice(0, 12); }
@@ -149,21 +178,44 @@
   }
 
   // ---------- Titolo ----------
+  // "Tocca per iniziare": nei browser automatici (test) si salta, a meno di window.__FMLAB_SPLASH
+  let titleTapped = false;
   function showTitle() {
     screen = 'title';
     const existing = loadSave();
-    app.innerHTML = `<div class="screen">
-      <div class="logo"><div class="big">FMLAB Monsters</div><div class="sub">Cattura, allena, sfida i tuoi amici</div></div>
+    const splash = !titleTapped && (!navigator.webdriver || window.__FMLAB_SPLASH);
+    const letters = (t, cls) => t.split('').map((c, i) => `<span class="${cls}" style="--i:${i}">${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('');
+    app.innerHTML = `<div class="screen title${splash ? ' splash' : ''}" id="titleScreen">
+      <div class="stars"></div>
+      <h1 class="sr">FMLAB Monsters</h1>
+      <div class="logo" aria-hidden="true"><div class="big">${letters('FMLAB', 'l1')}</div><div class="big2">${letters('MONSTERS', 'l2')}</div><div class="sub">Cattura, allena, sfida i tuoi amici</div></div>
       ${use3D ? '<div class="hero3d" id="hero3d"></div>' : `<div class="hero">${Art.monsterSVG('fiammino', { size: 112 })}${Art.monsterSVG('goccino', { size: 112 })}${Art.monsterSVG('semino', { size: 112 })}</div>`}
-      ${existing ? `<button class="btn green" id="cont">Continua — ${esc(existing.name)}</button>` : ''}
-      <div class="card"><div class="mut" style="margin-bottom:8px">${existing ? 'Oppure ricomincia da capo' : 'Come ti chiami?'}</div>
-        <input class="field" id="name" maxlength="16" placeholder="Il tuo nome" autocomplete="off"></div>
-      <button class="btn${existing ? ' sec' : ''}" id="new">${existing ? 'Nuova avventura' : 'Inizia'}</button>
-      <div class="err" id="err"></div>
-      <div class="mut" style="text-align:center;margin-top:auto">Creature, mondo e regole originali FMLAB</div>
+      ${splash ? '<button class="tapStart" id="tapStart">Tocca per iniziare</button>' : ''}
+      <div class="titleMenu" id="titleMenu">
+        ${existing ? `<button class="btn green" id="cont">Continua — ${esc(existing.name)}</button>` : ''}
+        <div class="card"><div class="mut" style="margin-bottom:8px">${existing ? 'Oppure ricomincia da capo' : 'Come ti chiami?'}</div>
+          <input class="field" id="name" maxlength="16" placeholder="Il tuo nome" autocomplete="off"></div>
+        <button class="btn${existing ? ' sec' : ''}" id="new">${existing ? 'Nuova avventura' : 'Inizia'}</button>
+        <div class="err" id="err"></div>
+      </div>
+      <div class="mut foot">Creature, mondo e regole originali FMLAB</div>
     </div>`;
+    AU.music('titolo');
     mount3D('hero3d', G3 && G3.createShowcase(E.STARTERS, { gap: 1.5 }));
-    if (existing) document.getElementById('cont').onclick = () => { save = existing; showMap(); };
+    if (splash) {
+      const ts = document.getElementById('titleScreen');
+      const go = (e) => {
+        if (e) e.preventDefault();
+        if (titleTapped) return;
+        titleTapped = true;
+        AU.unlock(); sfx('medaglia'); buzz(30);
+        ts.classList.remove('splash'); ts.classList.add('opened');
+        const tb = document.getElementById('tapStart'); if (tb) tb.remove();
+      };
+      document.getElementById('tapStart').addEventListener('click', go);
+      ts.addEventListener('pointerdown', (e) => { if (!e.target.closest('#titleMenu')) go(e); });
+    }
+    if (existing) document.getElementById('cont').onclick = () => { save = existing; applySettings(); showMap(); };
     const btn = document.getElementById('new');
     btn.onclick = () => {
       const name = document.getElementById('name').value.trim();
@@ -209,6 +261,7 @@
   }
   function newGame(name, starter) {
     save = defaultSave(name);
+    applySettings();
     const mon = E.createMonster(starter, 5);
     save.team.push(mon);
     save.seen[starter] = true; save.caught[starter] = true;
@@ -240,7 +293,7 @@
         <div class="dpad"><span></span><button data-d="0,-1" aria-label="Su">▲</button><span></span>
           <button data-d="-1,0" aria-label="Sinistra">◀</button><span></span><button data-d="1,0" aria-label="Destra">▶</button>
           <span></span><button data-d="0,1" aria-label="Giù">▼</button><span></span></div>
-        <div class="menu"><button class="btn sec" id="mTeam">Squadra</button><button class="btn sec" id="mDex">Archivio</button><button class="btn sec" id="mDiary">Diario</button><button class="btn" id="mPvp">Sfide</button><button class="btn orda" id="mHorde">🔥 Orda</button></div>
+        <div class="menu"><button class="btn sec" id="mTeam">Squadra</button><button class="btn sec" id="mDex">Archivio</button><button class="btn sec" id="mDiary">Diario</button><button class="btn" id="mPvp">Sfide</button><button class="btn orda" id="mHorde">🔥 Orda</button><button class="btn sec" id="mSet">⚙️ Opzioni</button></div>
       </div>
     </div>`;
     if (use3D) {
@@ -259,6 +312,7 @@
     document.getElementById('mDex').onclick = showDex;
     document.getElementById('mPvp').onclick = showPvp;
     document.getElementById('mHorde').onclick = startHorde;
+    document.getElementById('mSet').onclick = showSettings;
     document.getElementById('mDiary').onclick = showDiary;
     document.getElementById('mPod').onclick = () => showLounge(false);
     renderInvite();
@@ -267,6 +321,7 @@
     persist();
     if (!use3D) startLife();
     if (storyOn() && !save.story.intro) playIntro();
+    musicForMap();
   }
   let holdTimer = null;
   function bindDpad() {
@@ -323,10 +378,12 @@
     save.pos = { x: nx, y: ny };
     save.steps += 1;
     if (use3D && mapScene) mapScene.setPlayer(nx, ny, false, dx, dy); else drawMap();
+    sfx(isEncounter(t) ? 'erba' : 'passo');
     const z = zoneAt(ny);
-    if (z !== prevZone) { document.getElementById('zone').textContent = ZONE_NAMES[z]; toast(ZONE_NAMES[z]); }
+    if (z !== prevZone) { document.getElementById('zone').textContent = ZONE_NAMES[z]; toast(ZONE_NAMES[z]); musicForMap(); }
     if (t === 'D') {
       healAll(); persist();
+      sfx('cura'); buzz(40);
       document.getElementById('caps').textContent = save.capsules;
       const cc = document.getElementById('centerCard');
       cc.innerHTML = `<div class="card glass"><b>Centro FMLAB</b><div class="mut" style="margin:4px 0 10px">Squadra curata e capsule ricaricate ✓</div>
@@ -339,7 +396,7 @@
     if (t === 'L') {
       const today = new Date().toISOString().slice(0, 10);
       clearInterval(holdTimer);
-      if (save.gift !== today) { save.gift = today; save.capsules = Math.min(20, save.capsules + 3); persist(); document.getElementById('caps').textContent = save.capsules; say('Prof. Ferri', ['Tieni, 3 capsule nuove! Torna domani per altre.']); }
+      if (save.gift !== today) { save.gift = today; save.capsules = Math.min(20, save.capsules + 3); persist(); sfx('oggetto'); document.getElementById('caps').textContent = save.capsules; say('Prof. Ferri', ['Tieni, 3 capsule nuove! Torna domani per altre.']); }
       else say('Prof. Ferri', ['Le capsule di oggi te le ho già date. Prova nell\'erba alta del fiume!']);
       return;
     }
@@ -347,6 +404,7 @@
     if (item && !itemTaken(item)) {
       save.items[item.id] = new Date().toISOString().slice(0, 10);
       save.capsules = Math.min(20, save.capsules + 1); persist();
+      sfx('oggetto'); buzz(25);
       document.getElementById('caps').textContent = save.capsules;
       toast('Hai trovato una capsula! (' + save.capsules + ')');
       syncLife();
@@ -466,10 +524,12 @@
     clearInterval(dlg.typing);
     if (debug.fast) { el.textContent = text; dlg.typing = null; return; }
     // la scritta compare a velocità costante (contano i millisecondi, non i giri del timer)
-    const t0 = performance.now();
+    const t0 = performance.now(), cps = save && save.settings && save.settings.fastText ? 170 : 70;
+    let shown = 0;
     el.textContent = '';
     dlg.typing = setInterval(() => {
-      const n = Math.floor((performance.now() - t0) / 1000 * 70);
+      const n = Math.min(text.length, Math.floor((performance.now() - t0) / 1000 * cps));
+      if (n > shown) { if (/\S/.test(text.slice(shown, n)) && (n >> 1) !== (shown >> 1)) sfx('dialogo'); shown = n; }
       el.textContent = text.slice(0, n);
       if (n >= text.length) { clearInterval(dlg.typing); dlg.typing = null; }
     }, 30);
@@ -600,6 +660,7 @@
       foeName: tr.name, state, view: E.clone(state), panel: 'main', msg: `${tr.title} ${tr.name} ti sfida!`,
     };
     B.act = trainerTurn;
+    battleIntro(tr.kind === 'guardian' || tr.kind === 'champion' ? 'boss' : 'trainer');
     renderBattle();
   }
   async function trainerTurn(action) {
@@ -624,10 +685,12 @@
       save.story.beaten[tr.id] = true;
       save.capsules = Math.min(20, save.capsules + (tr.reward || 1));
       setLog(`Hai battuto ${tr.title} ${tr.name}! +${tr.reward || 1} capsule`);
+      showVictory('VITTORIA!'); AU.music('vittoria');
       persist();
       await say(tr.title + ' ' + tr.name, tr.defeat);
       if (tr.badge) {
         save.story.badges[tr.badge] = true; persist();
+        sfx('medaglia'); buzz([50, 50, 120]);
         const b = badgeOf(tr.badge);
         await say('', [`Hai ottenuto la ${b.name} ${b.icon}!`]);
         if (tr.badge === 'campione') await say(ST.PROF.name, ['Il Cristallo Madre brilla di nuovo! Sapevo che ce l\'avresti fatta, {nome}.', 'Ora sei il Campione. Completa l\'Archivio e sfida i tuoi amici online!']);
@@ -674,6 +737,101 @@
   }
   function setLog(text) { const el = document.getElementById('log'); if (el) el.textContent = text; B.msg = text; }
 
+  // ---------- "Juice" della lotta: transizione, numeri, scritte, scosse, vittoria, evoluzione ----------
+  const battleTheme = () => (B && ((B.mode === 'trainer' && B.trainer && (B.trainer.kind === 'guardian' || B.trainer.kind === 'champion')) || B.mode === 'pvp') ? 'lotta-guardiano' : 'lotta');
+  function battleIntro(kind) {
+    sfx('incontro'); buzz(kind === 'boss' ? [40, 40, 90] : 35);
+    fx.wipes++;
+    if (debug.fast) return;
+    const w = document.createElement('div');
+    w.className = 'wipe ' + kind;
+    w.innerHTML = '<s></s>' + '<i></i>'.repeat(8) + (kind === 'boss' ? '<b>SFIDA!</b>' : kind === 'pvp' ? '<b>VS</b>' : '<u class="cm"></u>' + (kind === 'shiny' ? '<b>✨</b>' : ''));
+    document.body.appendChild(w);
+    // si toglie quando le strisce hanno finito (riserva: 2,5 s)
+    let ended = 0;
+    w.addEventListener('animationend', (e) => { if (e.target.tagName === 'I' && ++ended >= 8) w.remove(); });
+    setTimeout(() => w.remove(), 2500);
+  }
+  /** Dove far saltare il numero: accanto al riquadro della creatura colpita (la camera della lotta
+   * si muove, il riquadro resta fermo ed è sempre leggibile). In 2D, sopra il disegno. */
+  function popPos(sideIdx) {
+    const mine = sideIdx === B.my;
+    if (!battleScene) {
+      const el = document.getElementById(mine ? 'spr0' : 'spr1');
+      if (el) { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.25 }; }
+    }
+    const box = document.getElementById(mine ? 'info0' : 'info1');
+    if (box) {
+      const r = box.getBoundingClientRect();
+      return mine ? { x: r.left + r.width * 0.5, y: r.top - 26 } : { x: r.left + r.width * 0.62, y: r.bottom + 30 };
+    }
+    return { x: window.innerWidth / 2, y: window.innerHeight * 0.3 };
+  }
+  /** Numero o parola che salta fuori sopra la creatura (danno, "Mancato!", stato). */
+  function popNumber(sideIdx, text, cls) {
+    fx.damage++;
+    const p = popPos(sideIdx), d = document.createElement('div');
+    d.className = 'dmg ' + (cls || '');
+    d.textContent = text;
+    d.style.left = p.x + 'px'; d.style.top = p.y + 'px';
+    d.style.setProperty('--dx', ((Math.random() - 0.5) * 46).toFixed(0) + 'px');
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), debug.fast ? 80 : 1150);
+  }
+  function banner(text, cls) {
+    fx.banners++;
+    const d = document.createElement('div');
+    d.className = 'banner ' + (cls || '');
+    d.textContent = text;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), debug.fast ? 80 : 1200);
+  }
+  function shakeScreen() {
+    fx.shakes++;
+    const el = document.querySelector('.battle');
+    if (!el) return;
+    el.classList.remove('shakeS'); void el.offsetWidth; el.classList.add('shakeS');
+  }
+  function showVictory(title) {
+    fx.victories++;
+    const ar = document.querySelector('.arena');
+    if (!ar) return;
+    const x = B.lastXp, up = x && x.lvTo > x.lvFrom;
+    const d = document.createElement('div');
+    d.className = 'victory';
+    d.innerHTML = `<div class="vt">${esc(title || 'VITTORIA!')}</div>${x ? `<div class="vsub">${esc(x.name)} +${x.gain} esperienza${up ? ` · Lv ${x.lvFrom} → <b>${x.lvTo}</b>` : ''}</div><div class="vxp"><i style="width:${up ? 0 : x.from}%"></i></div>` : ''}`;
+    ar.appendChild(d);
+    if (x) requestAnimationFrame(() => requestAnimationFrame(() => { const i = d.querySelector('.vxp i'); if (i) i.style.width = x.to + '%'; }));
+  }
+  /** Sequenza dell'evoluzione: la creatura gira e brilla, lampo, ed ecco la nuova forma. */
+  async function playEvolution(fromId, toId, shiny) {
+    if (!E.SPECIES[fromId] || !E.SPECIES[toId]) return;
+    fx.evolutions++;
+    const key = (id) => id + (shiny ? '*' : '');
+    const ov = document.createElement('div');
+    ov.className = 'evo'; ov.id = 'evo';
+    ov.innerHTML = `<div class="evoRays"></div><div class="evoStage" id="evoStage">${use3D ? '' : Art.monsterSVG(fromId, { size: 220, shiny })}</div><div class="evoText" id="evoText">Cosa? ${esc(E.SPECIES[fromId].name)} si sta evolvendo!</div>`;
+    document.body.appendChild(ov);
+    const prevTheme = AU.current;
+    AU.music('evoluzione'); sfx('evoluzione'); buzz([30, 60, 30, 60, 30]);
+    let sc = null;
+    if (use3D) { sc = G3.createShowcase([key(fromId)], { spin: true, size: 1.3 }); G3.mount(document.getElementById('evoStage'), sc); }
+    requestAnimationFrame(() => ov.classList.add('on'));
+    await sleep(2400);
+    ov.classList.add('burst');
+    await sleep(230);
+    if (sc) sc.ids = [key(toId)]; else document.getElementById('evoStage').innerHTML = Art.monsterSVG(toId, { size: 220, shiny });
+    document.getElementById('evoText').innerHTML = `${esc(E.SPECIES[fromId].name)} si è evoluto in <b>${esc(E.SPECIES[toId].name)}</b>!`;
+    ov.classList.add('done');
+    sfx('livello'); buzz(120);
+    await sleep(2000);
+    ov.classList.add('out');
+    await sleep(380);
+    ov.remove();
+    if (screen === 'battle' && battleScene && document.getElementById('stage3d')) mount3D('stage3d', battleScene);
+    if (prevTheme && prevTheme !== 'evoluzione') AU.music(prevTheme);
+  }
+
   function renderBattle() {
     const v = B.view;
     const me = v.sides[B.my].team[v.sides[B.my].active];
@@ -701,6 +859,7 @@
       if (!mount3D('stage3d', battleScene)) battleScene = null;
       layout3D();
     }
+    AU.music(battleTheme());
     renderInfo();
     renderActions();
   }
@@ -715,8 +874,19 @@
       if (!el) return;
       const balls = B.mode === 'pvp' ? `<div style="margin-top:4px">${side.team.map((m) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;background:${m.hp > 0 ? '#22c55e' : '#9ca3af'}"></span>`).join('')}</div>` : '';
       el.innerHTML = `<div class="nm"><span>${esc(mon.name)}${shinyMark(mon)}</span><span>Lv ${mon.level}</span></div>${pill(typeOf(mon))}${statusTag(mon.status)}
-        ${hpBar(mon.hp, mon.maxhp)}${mine ? `<div class="hptext">${mon.hp} / ${mon.maxhp}</div>${B.mode === 'wild' ? `<div class="xpbar"><i style="width:${xpPct(mon)}%"></i></div>` : ''}` : ''}${balls}`;
+        ${hpBarAnim(mon, sideIdx)}${mine ? `<div class="hptext">${mon.hp} / ${mon.maxhp}</div>${B.mode === 'wild' ? `<div class="xpbar"><i style="width:${xpPct(mon)}%"></i></div>` : ''}` : ''}${balls}`;
+      el.querySelectorAll('.hpbar.anim').forEach((bar) => {
+        const to = bar.dataset.to;
+        requestAnimationFrame(() => requestAnimationFrame(() => { bar.querySelector('i').style.width = to + '%'; bar.querySelector('.lag').style.width = to + '%'; }));
+      });
     });
+  }
+  function hpBarAnim(mon, sideIdx) {
+    const pct = Math.max(0, (mon.hp / mon.maxhp) * 100), key = sideIdx + ':' + mon.uid;
+    B.hpPrev = B.hpPrev || {};
+    const prev = B.hpPrev[key] != null ? B.hpPrev[key] : pct;
+    B.hpPrev[key] = pct;
+    return `<div class="hpbar anim" data-to="${pct.toFixed(1)}"><b class="lag" style="width:${prev.toFixed(1)}%"></b><i class="${hpCls(pct / 100)}" style="width:${prev.toFixed(1)}%"></i></div>`;
   }
   function renderSprites() {
     const v = B.view;
@@ -796,17 +966,27 @@
       if (screen !== 'battle') return;
       switch (ev.t) {
         case 'move':
+          B.lastType = B.lastType || {}; B.lastType[ev.side] = moveType(ev.move);
+          sfx('attacco');
           setLog(`${displayName(ev.side, ev.name)} usa ${ev.move}!`);
           if (battleScene) battleScene.attack(slot(ev.side), moveType(ev.move));
           await sleep(650); break;
         case 'miss':
           setLog('Ma manca il colpo!');
           if (battleScene) battleScene.miss(slot(ev.side));
+          popNumber(1 - ev.side, 'Mancato!', 'miss');
           await sleep(650); break;
         case 'hit': {
           const side = v.sides[ev.side], mon = side.team[side.active];
+          const dmg = ev.dmg != null ? ev.dmg : Math.max(0, mon.hp - ev.hp);
           mon.hp = ev.hp;
           if (battleScene) battleScene.hit(slot(ev.side), { crit: ev.crit, eff: ev.eff });
+          sfx('colpo-' + ((B.lastType && B.lastType[1 - ev.side]) || 'normale'));
+          popNumber(ev.side, '-' + dmg, ev.crit ? 'crit' : ev.eff > 1 ? 'super' : ev.eff < 1 ? 'weak' : '');
+          const tags = [];
+          if (ev.crit) { tags.push('COLPO CRITICO!'); sfx('critico'); shakeScreen(); buzz(70); } else buzz(25);
+          if (ev.eff > 1) { tags.push('SUPEREFFICACE!'); sfx('superefficace'); } else if (ev.eff < 1) { tags.push('Poco efficace…'); sfx('pocoefficace'); }
+          if (tags.length) banner(tags.join(' '), ev.eff > 1 ? 'super' : ev.crit ? 'crit' : 'weak');
           const el = document.getElementById(ev.side === B.my ? 'spr0' : 'spr1');
           if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake', 'flash'); }
           renderInfo();
@@ -821,6 +1001,7 @@
         case 'faint': {
           setLog(`${displayName(ev.side, ev.name)} è esausto!`);
           if (battleScene) battleScene.faint(slot(ev.side));
+          sfx('esausto'); buzz(80);
           const el = document.getElementById(ev.side === B.my ? 'spr0' : 'spr1');
           if (el) el.classList.add('faint');
           await sleep(900);
@@ -828,6 +1009,7 @@
         }
         case 'switch':
           v.sides[ev.side].active = ev.to;
+          sfx('lancio');
           if (battleScene) battleScene.setMon(slot(ev.side), v.sides[ev.side].team[ev.to].species, { force: true, shiny: !!v.sides[ev.side].team[ev.to].shiny });
           renderSprites();
           setLog(ev.side === B.my ? `Vai, ${ev.name}!` : (B.mode === 'wild' ? `Arriva ${ev.name}!` : `${B.foeName} manda in campo ${ev.name}!`));
@@ -836,6 +1018,8 @@
         case 'status': {
           const mon = v.sides[ev.side].team[v.sides[ev.side].active];
           if (mon) mon.status = ev.status;
+          sfx('stato');
+          if (STATUS_TAG[ev.status]) popNumber(ev.side, STATUS_TAG[ev.status][0], 'status st-' + ev.status);
           setLog(`${displayName(ev.side, ev.name || (mon && mon.name) || '')} ${STATUS_TXT[ev.status] || 'ha un problema'}!`);
           renderInfo(); syncStatus3D();
           await sleep(750);
@@ -843,7 +1027,8 @@
         }
         case 'statusDmg': {
           const mon = v.sides[ev.side].team[v.sides[ev.side].active];
-          if (mon) { mon.hp = ev.hp; if (ev.maxhp) mon.maxhp = ev.maxhp; }
+          if (mon) { const lost = Math.max(0, mon.hp - ev.hp); if (lost) popNumber(ev.side, '-' + lost, 'status st-' + ev.status); mon.hp = ev.hp; if (ev.maxhp) mon.maxhp = ev.maxhp; }
+          sfx(ev.status === 'brn' ? 'colpo-fuoco' : 'colpo-ombra');
           const nm = displayName(ev.side, (mon && mon.name) || '');
           setLog(ev.status === 'brn' ? `${nm} soffre per la bruciatura!` : `${nm} soffre per il veleno!`);
           if (battleScene) battleScene.hit(slot(ev.side), { crit: false, eff: 1 });
@@ -886,6 +1071,7 @@
     B.act = (a) => wildTurn(a);
     B.catchIt = wildCatch;
     B.run = wildRun;
+    battleIntro(wild.shiny ? 'shiny' : 'wild');
     renderBattle();
   }
 
@@ -912,11 +1098,19 @@
     const gain = Math.floor(E.xpReward(foe) * mult);
     setLog(`${mon.name} guadagna ${gain} punti esperienza.`);
     await sleep(800);
+    const xpFrom = xpPct(mon), lvFrom = mon.level, name0 = mon.name;
+    let sp0 = mon.species;
     const evs = E.gainXp(mon, gain);
+    B.lastXp = { name: name0, gain, from: xpFrom, to: xpPct(mon), lvFrom, lvTo: mon.level };
     for (const ev of evs) {
-      if (ev.kind === 'level') setLog(`${mon.name} sale al livello ${ev.level}!`);
+      if (ev.kind === 'level') { setLog(`${mon.name} sale al livello ${ev.level}!`); sfx('livello'); popNumber(B.my, 'Lv ' + ev.level + '!', 'lvl'); }
       if (ev.kind === 'move') setLog(`${mon.name} impara ${ev.move}!`);
-      if (ev.kind === 'evolve') { setLog(`Cosa? ${ev.from} si evolve in ${ev.to}!`); save.seen[mon.species] = true; save.caught[mon.species] = true; }
+      if (ev.kind === 'evolve') {
+        setLog(`Cosa? ${ev.from} si evolve in ${ev.to}!`); save.seen[mon.species] = true; save.caught[mon.species] = true;
+        const toId = Object.keys(E.SPECIES).find((k) => E.SPECIES[k].name === ev.to) || mon.species;
+        await playEvolution(sp0, toId, !!mon.shiny);
+        sp0 = toId;
+      }
       B.view = E.clone(st); renderSprites();
       await sleep(1000);
     }
@@ -932,11 +1126,14 @@
     const spr = document.getElementById('spr1');
     if (spr) spr.style.opacity = '0';
     if (battleScene) battleScene.throwCapsule(); else document.getElementById('capsule').innerHTML = '<div class="capsule"></div>';
+    sfx('lancio');
+    if (!debug.fast) [1300, 1700].forEach((ms) => setTimeout(() => { if (screen === 'battle') { sfx('oscillazione'); buzz(15); } }, ms));
     await sleep(1600);
     const chance = debug.catchLuck != null ? debug.catchLuck : E.catchChance(foe);
     const caughtIt = Math.random() < chance;
     if (battleScene) { battleScene.captureResult(caughtIt); await sleep(caughtIt ? 500 : 700); }
     if (caughtIt) {
+      sfx('cattura'); buzz([40, 60, 40]);
       setLog(`Preso! ${foe.name} è entrato nella tua squadra!`);
       const caught = E.clone(foe);
       caught.uid = String(Date.now()) + Math.floor(Math.random() * 1e6);
@@ -951,6 +1148,7 @@
     const capEl = document.getElementById('capsule');
     if (capEl) capEl.innerHTML = '';
     if (spr) spr.style.opacity = '1';
+    sfx('uscita');
     setLog(`${foe.name} è uscito dalla capsula!`);
     await sleep(800);
     B.panel = 'main';
@@ -961,6 +1159,7 @@
     if (B.panel === 'busy') return;
     renderActions('busy');
     if (Math.random() < 0.85) {
+      sfx('fuga');
       setLog('Sei scappato senza problemi.');
       syncTeam(B.state.sides[0].team); persist();
       await sleep(700);
@@ -981,7 +1180,7 @@
 
   async function endWild(result) {
     syncTeam(B.state.sides[0].team);
-    if (result === 'win') setLog('Hai vinto la lotta!');
+    if (result === 'win') { setLog('Hai vinto la lotta!'); showVictory('VITTORIA!'); AU.music('vittoria'); }
     else {
       setLog('Le tue creature sono esauste… Corri al Centro FMLAB per curarle.');
       healAll();
@@ -1232,6 +1431,7 @@
     el.style.display = 'block';
     if (el.dataset.sig === inv.code) return;
     el.dataset.sig = inv.code;
+    sfx('invito'); buzz([40, 60, 40]);
     el.innerHTML = `<div class="card glass row"><div class="grow">🔔 <b>${esc(inv.from)}</b> ti sfida!</div><button class="btn green" id="invOk">Accetta</button><button class="btn sec" id="invNo">No</button></div>`;
     document.getElementById('invOk').onclick = () => { presence.invites.shift(); joinRoom(inv.code); };
     document.getElementById('invNo').onclick = async () => { presence.invites.shift(); renderInvite(); await api({ action: 'decline', pid: save.pid, code: inv.code }); };
@@ -1291,6 +1491,7 @@
       view: viewFromServer(s), panel: 'main', msg: `Sfida contro ${s.names[1 - side]}! Scegli la tua mossa.`,
     };
     B.act = pvpAct;
+    battleIntro('pvp');
     renderBattle();
   }
 
@@ -1327,7 +1528,38 @@
     if (won) save.wins += 1; else save.losses += 1;
     persist();
     setLog(r.winner === -1 ? 'Pareggio!' : won ? `Hai vinto la sfida contro ${B.foeName}!` : `${B.foeName} ha vinto la sfida.`);
+    if (won) { showVictory('HAI VINTO!'); AU.music('vittoria'); }
     renderActions('end');
+  }
+
+  // ---------- Impostazioni ----------
+  function showSettings() {
+    screen = 'settings';
+    applySettings();
+    const st0 = save.settings, Q = ['auto', 'alta', 'media', 'bassa'], QN = { auto: 'Auto', alta: 'Alta', media: 'Media', bassa: 'Bassa' };
+    app.innerHTML = `<div class="screen settings">
+      <div class="row"><h2 class="grow">Impostazioni</h2><button class="btn sec" id="back">Mappa</button></div>
+      <div class="card set">
+        <label class="srow"><span>🎵 Musica</span><input type="range" id="sMusic" min="0" max="100" value="${Math.round(st0.music * 100)}"><b id="sMusicV">${Math.round(st0.music * 100)}</b></label>
+        <label class="srow"><span>🔊 Effetti</span><input type="range" id="sSfx" min="0" max="100" value="${Math.round(st0.sfx * 100)}"><b id="sSfxV">${Math.round(st0.sfx * 100)}</b></label>
+        <label class="srow tog"><span>📳 Vibrazione</span><input type="checkbox" id="sVibra" ${st0.vibra ? 'checked' : ''}><i></i></label>
+        <label class="srow tog"><span>⚡ Testo veloce</span><input type="checkbox" id="sFast" ${st0.fastText ? 'checked' : ''}><i></i></label>
+      </div>
+      <div class="card set"><div class="srow"><span>🖼️ Grafica</span></div>
+        <div class="seg" id="sQual">${Q.map((q) => `<button class="${st0.quality === q ? 'on' : ''}" data-q="${q}">${QN[q]}</button>`).join('')}</div>
+        <div class="mut" style="margin-top:8px">${use3D ? 'Auto abbassa la qualità da sola se il telefono fatica.' : 'Questo telefono usa la grafica 2D.'}</div></div>
+      <button class="btn sec" id="sTest">🔔 Prova i suoni</button>
+      <div class="mut" style="text-align:center">Musica ed effetti sono composti dal gioco, nota per nota.</div>
+    </div>`;
+    const keep = () => { persist(); applySettings(); };
+    document.getElementById('back').onclick = () => showMap();
+    const range = (id, key, lbl) => document.getElementById(id).addEventListener('input', (e) => { st0[key] = Number(e.target.value) / 100; document.getElementById(lbl).textContent = e.target.value; keep(); });
+    range('sMusic', 'music', 'sMusicV');
+    range('sSfx', 'sfx', 'sSfxV');
+    document.getElementById('sVibra').addEventListener('change', (e) => { st0.vibra = e.target.checked; keep(); buzz(60); });
+    document.getElementById('sFast').addEventListener('change', (e) => { st0.fastText = e.target.checked; keep(); });
+    app.querySelectorAll('#sQual button').forEach((b) => { b.onclick = () => { st0.quality = b.dataset.q; keep(); app.querySelectorAll('#sQual button').forEach((x) => x.classList.toggle('on', x === b)); }; });
+    document.getElementById('sTest').onclick = () => { AU.unlock(); ['cura', 'colpo-fuoco', 'superefficace', 'cattura'].forEach((n, i) => setTimeout(() => sfx(n), i * 450)); };
   }
 
   // ---------- Avvio e agganci per i test ----------
@@ -1338,7 +1570,7 @@
     newGame,
     startWild: (sp, lv, zone, opts) => startWild(sp, lv, zone || 'prato', opts),
     showMap, showTeam, showDex, showPvp, showViewer, showLounge, life, world: Wd, serverMode, presence, hello,
-    showDiary, story, startTrainer, say, startHorde, get battle() { return B; }, get dialog() { return dlg; },
+    showDiary, story, startTrainer, say, startHorde, showSettings, playEvolution, fx, audio: AU, get titleTapped() { return titleTapped; }, get battle() { return B; }, get dialog() { return dlg; },
     get dialogLine() { return dlg.q ? (dlg.q.name ? dlg.q.name + ': ' : '') + dlg.q.lines[dlg.q.i] : ''; },
     skipDialog: () => { let n = 0; while (dlg.open && n++ < 50) { if (dlg.typing) advanceDialog(); advanceDialog(); } },
     use3D, get gl() { return G3 ? G3.stats : null; },

@@ -165,3 +165,53 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
   .full .invite { left: auto; width: min(420px, 50vw); top: calc(10px + var(--safe-t)); right: 10px; }
   .full .centercard { left: auto; right: 180px; width: min(380px, 45vw); bottom: calc(12px + var(--safe-b)); }
 }
+
+/* Storia: dialoghi, stati, shiny, Diario */
+.dlg { display: none; position: fixed; z-index: 60; left: 10px; right: 10px; bottom: calc(14px + var(--safe-b)); max-width: 640px; margin: 0 auto;
+  background: linear-gradient(180deg, #fafcff, #e6ecf8); color: #111827; border-radius: 18px; padding: 22px 18px 16px;
+  border: 3px solid #1e293b; box-shadow: 0 10px 30px rgba(0, 0, 0, .45), inset 0 0 0 2px rgba(255, 255, 255, .7); cursor: pointer; user-select: none; -webkit-user-select: none; }
+.dlg.sys { background: linear-gradient(180deg, #1e293b, #0f172a); color: #fef3c7; border-color: #f59e0b; text-align: center; }
+.dlgName { position: absolute; top: -15px; left: 16px; background: #1e293b; color: #fff; font-weight: 800; font-size: 14px; padding: 5px 12px; border-radius: 10px; letter-spacing: .2px; }
+.dlgText { font-size: 17px; line-height: 1.42; min-height: 50px; font-weight: 600; }
+.dlgNext { position: absolute; right: 14px; bottom: 6px; font-size: 13px; color: #3b82f6; animation: dlgbob 0.9s ease-in-out infinite; }
+.dlg.sys .dlgNext { color: #f59e0b; }
+@keyframes dlgbob { 50% { transform: translateY(3px); } }
+.stag { display: inline-block; margin-left: 5px; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 800; color: #fff; vertical-align: middle; }
+.shiny { margin-left: 3px; filter: drop-shadow(0 0 3px #fde68a); }
+.menu { grid-template-columns: 1fr 1fr; }
+.menu .btn { padding: 11px 6px; font-size: 14px; }
+.full .menu { max-width: 190px; }
+.diary .goal { background: linear-gradient(135deg, #1e3a8a, #312e81); }
+.goalText { font-size: 17px; font-weight: 700; margin-top: 4px; line-height: 1.35; }
+.badges { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 10px; }
+.badge { text-align: center; padding: 8px 2px; border-radius: 14px; background: #0c1120; border: 2px dashed #33405e; }
+.badge.got { background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--c) 45%, transparent), #0c1120 75%); border: 2px solid var(--c); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 50%, transparent); }
+.badge .bi { font-size: 26px; line-height: 1.2; }
+.badge:not(.got) .bi { color: #4b5563; font-weight: 900; }
+.badge .bn { font-size: 10.5px; font-weight: 700; margin-top: 3px; min-height: 26px; }
+.badge .bw { font-size: 10px; color: var(--mut); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+.stats div { display: flex; justify-content: space-between; border-bottom: 1px solid #263048; padding: 6px 0; font-size: 14px; }
+.stats span { color: var(--mut); }
+@media (orientation: landscape) and (max-height: 560px) {
+  .dlg { left: 20%; right: 20%; bottom: calc(10px + var(--safe-b)); padding: 18px 16px 12px; }
+  .dlgText { font-size: 16px; min-height: 40px; }
+  .stats { grid-template-columns: 1fr 1fr 1fr; gap: 2px 14px; }
+  .screen.diary { gap: 8px; padding-top: calc(8px + var(--safe-t)); }
+  .diary h2 { font-size: 18px; }
+  .diary .btn { padding: 9px 14px; }
+  .diary .card { padding: 10px 12px; }
+  .goalText { font-size: 15px; }
+  .badges { margin-top: 6px; }
+  .badge { padding: 4px 2px; }
+  .badge .bi { font-size: 19px; }
+  .badge .bn { min-height: 0; font-size: 9.5px; }
+  .stats div { padding: 3px 0; font-size: 13px; }
+}
+
+/* riquadro in alto della mappa: una riga sola, niente testo a capo */
+.full .hud .grow { min-width: 0; }
+.full .hud .zone, .full .hud .mut { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.full .hud .zone { font-size: 15px; }
+.full .hud .mut { font-size: 12px; }
+.full .hud > div[style*="width:130px"] { width: 104px !important; flex: none; }

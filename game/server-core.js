@@ -17,6 +17,8 @@
   const ONLINE_MS = 90 * 1000;          // visto negli ultimi 90 secondi = online
   const PRESENCE_TTL_MS = 10 * 60 * 1000;
   const INVITE_TTL_MS = 10 * 60 * 1000;
+  const HORDE_RATE_MS = 20 * 1000;      // Orda: al massimo un punteggio ogni 20 secondi per giocatore
+  const HORDE_KEEP = 50;                // Orda: si tengono i 50 migliori (la classifica resta sotto 9 KB)
   const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // niente 0/O, 1/I
 
   /**
@@ -227,6 +229,42 @@
         if (!pid) return { ok: false, error: 'Giocatore non valido.' };
         storage.set('inv_' + pid, JSON.stringify(readInvites(pid).filter((i) => i.code !== code)));
         return { ok: true };
+      },
+
+      /** Modalità Orda: invio del punteggio con controlli di plausibilità. */
+      hordeScore(p) {
+        const pid = cleanPid(p.pid), name = cleanName(p.name);
+        if (!pid || !name) return { ok: false, error: 'Giocatore non valido.' };
+        const wave = Number(p.wave), score = Number(p.score);
+        if (!Number.isInteger(wave) || wave < 1 || wave > 300) return { ok: false, error: 'Ondata non valida.' };
+        if (!Number.isInteger(score) || score < 0 || score > wave * 5000) return { ok: false, error: 'Punteggio non valido.' };
+        if (!E.SPECIES[p.species]) return { ok: false, error: 'Creatura non valida.' };
+        const now = storage.now();
+        let rate = {};
+        try { rate = JSON.parse(storage.get('horde_rate') || '{}'); } catch (e) { rate = {}; }
+        Object.keys(rate).forEach((k) => { if (now - rate[k] > HORDE_RATE_MS * 3) delete rate[k]; });
+        if (rate[pid] && now - rate[pid] < HORDE_RATE_MS) return { ok: false, error: 'Aspetta qualche secondo prima di inviare un altro punteggio.' };
+        rate[pid] = now;
+        storage.set('horde_rate', JSON.stringify(rate));
+        let lb = {};
+        try { lb = JSON.parse(storage.get('horde_lb') || '{}'); } catch (e) { lb = {}; }
+        const prev = lb[name];
+        const best = !prev || score > prev.s;
+        if (best) lb[name] = { s: score, w: wave, sp: p.species, t: now };
+        // si tengono solo i migliori: la chiave resta piccola
+        const names = Object.keys(lb).sort((a, b) => lb[b].s - lb[a].s);
+        names.slice(HORDE_KEEP).forEach((n) => delete lb[n]);
+        storage.set('horde_lb', JSON.stringify(lb));
+        const rank = names.indexOf(name) + 1;
+        return { ok: true, best, rank: rank > 0 && rank <= HORDE_KEEP ? rank : null };
+      },
+
+      hordeTop() {
+        let lb = {};
+        try { lb = JSON.parse(storage.get('horde_lb') || '{}'); } catch (e) { lb = {}; }
+        const rows = Object.keys(lb).map((name) => ({ name, score: lb[name].s, wave: lb[name].w, species: lb[name].sp }))
+          .sort((a, b) => b.score - a.score).slice(0, 20);
+        return { ok: true, rows };
       },
 
       leaderboard() {

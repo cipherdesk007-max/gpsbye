@@ -1604,7 +1604,7 @@ void main() {
     set speed(v) { S.speed = v; }, get speed() { return S.speed; },
     _internal: { buildCreature, buildArena, buildWorld, mat, mmul },
     // attrezzi per game/models.js (modelli e animazioni dei personaggi e delle creature)
-    kit: { Builder, V, mat, mmul, xf, hex, shade, mix, ico, cone, cyl, box, prism, disc, mesh, speciesLook, parseMon, LOOKS, softShadow, WHITE, BLACK, easeOutBack, clamp01, buildCreature, buildTrainer, hooks: HOOKS },
+    kit: { Builder, V, mat, mmul, xf, hex, shade, mix, ico, cone, cyl, box, prism, disc, mesh, speciesLook, parseMon, LOOKS, softShadow, WHITE, BLACK, easeOutBack, clamp01, buildCreature, buildTrainer, drawMon, drawTrainer, particleMesh, capsuleMesh, perspective, lookAt, projFor, envAt, skyFor, arenaEnv, buildArena, hooks: HOOKS },
     hooks: HOOKS,
   };
 })(typeof self !== 'undefined' ? self : this);

@@ -240,7 +240,7 @@
         <div class="dpad"><span></span><button data-d="0,-1" aria-label="Su">▲</button><span></span>
           <button data-d="-1,0" aria-label="Sinistra">◀</button><span></span><button data-d="1,0" aria-label="Destra">▶</button>
           <span></span><button data-d="0,1" aria-label="Giù">▼</button><span></span></div>
-        <div class="menu"><button class="btn sec" id="mTeam">Squadra</button><button class="btn sec" id="mDex">Archivio</button><button class="btn sec" id="mDiary">Diario</button><button class="btn" id="mPvp">Sfide</button></div>
+        <div class="menu"><button class="btn sec" id="mTeam">Squadra</button><button class="btn sec" id="mDex">Archivio</button><button class="btn sec" id="mDiary">Diario</button><button class="btn" id="mPvp">Sfide</button><button class="btn orda" id="mHorde">🔥 Orda</button></div>
       </div>
     </div>`;
     if (use3D) {
@@ -258,6 +258,7 @@
     document.getElementById('mTeam').onclick = showTeam;
     document.getElementById('mDex').onclick = showDex;
     document.getElementById('mPvp').onclick = showPvp;
+    document.getElementById('mHorde').onclick = startHorde;
     document.getElementById('mDiary').onclick = showDiary;
     document.getElementById('mPod').onclick = () => showLounge(false);
     renderInvite();
@@ -1177,6 +1178,35 @@
     startPvp(r, 1);
   }
 
+  // ---------- Modalità Orda (game/horde.js) ----------
+  // horde.js definisce window.FMLABHorde.start(ctx). Il gioco gli passa tutto quello che serve
+  // e riceve il risultato alla fine (esperienza per la creatura usata, capsule, punteggio).
+  function startHorde() {
+    if (!window.FMLABHorde || !save || !save.team.length) { toast('Modalità Orda non disponibile.'); return; }
+    stopPoll();
+    clearInterval(holdTimer);
+    screen = 'horde';
+    window.FMLABHorde.start({
+      app, save, E, G3, use3D, api, esc, debug, persist,
+      audio: window.FMLABAudio,
+      onExit: (result) => {
+        result = result || {};
+        const mon = save.team.find((m) => m.uid === result.uid) || save.team[0];
+        const msgs = [];
+        if (mon && result.xp > 0) {
+          E.gainXp(mon, Math.round(result.xp)).forEach((ev) => {
+            if (ev.kind === 'level') msgs.push(mon.name + ' sale al livello ' + ev.level + '!');
+            if (ev.kind === 'evolve') { msgs.push(ev.from + ' si evolve in ' + ev.to + '!'); save.seen[mon.species] = true; save.caught[mon.species] = true; }
+          });
+        }
+        if (result.capsules > 0) save.capsules = Math.min(20, save.capsules + result.capsules);
+        save.hordeBest = Math.max(save.hordeBest || 0, result.score || 0);
+        persist();
+        showMap(result.score != null ? `Orda: ${result.score} punti, ondata ${result.wave || 1}.${result.xp ? ' +' + Math.round(result.xp) + ' esperienza.' : ''}${msgs.length ? ' ' + msgs.join(' ') : ''}` : null);
+      },
+    });
+  }
+
   // ---------- Sala Online e FMLAB Pod: chi c'è e inviti ----------
   const presence = { online: [], invites: [], timer: null, last: 0 };
   async function hello() {
@@ -1308,7 +1338,7 @@
     newGame,
     startWild: (sp, lv, zone, opts) => startWild(sp, lv, zone || 'prato', opts),
     showMap, showTeam, showDex, showPvp, showViewer, showLounge, life, world: Wd, serverMode, presence, hello,
-    showDiary, story, startTrainer, say, get battle() { return B; }, get dialog() { return dlg; },
+    showDiary, story, startTrainer, say, startHorde, get battle() { return B; }, get dialog() { return dlg; },
     get dialogLine() { return dlg.q ? (dlg.q.name ? dlg.q.name + ': ' : '') + dlg.q.lines[dlg.q.i] : ''; },
     skipDialog: () => { let n = 0; while (dlg.open && n++ < 50) { if (dlg.typing) advanceDialog(); advanceDialog(); } },
     use3D, get gl() { return G3 ? G3.stats : null; },

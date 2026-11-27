@@ -220,3 +220,5 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 .full .hud .mut { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
 .full .hud .grow { min-width: 0; }
 .full .hud .ico { width: 36px; height: 36px; font-size: 18px; }
+
+.menu .btn.orda { background: linear-gradient(90deg, #f97316, #ef4444); }

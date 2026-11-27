@@ -3,7 +3,7 @@
  */
 (function () {
   'use strict';
-  const E = window.FMLABEngine, Art = window.FMLABArt, G3 = window.FMLAB3D;
+  const E = window.FMLABEngine, Art = window.FMLABArt, G3 = window.FMLAB3D, ST = window.FMLABStory;
   // 3D se il telefono ha WebGL; ?2d nell'indirizzo forza la grafica piatta
   const use3D = !!(G3 && G3.supported() && !/[?&]2d\b/.test(location.search));
   let mapScene = null, battleScene = null;
@@ -29,11 +29,13 @@
 
   let save = null;
   let screen = 'title';
-  const debug = { catchLuck: null, encounterRate: null, fast: false, hour: null, noLife: false, weather: null };
+  const debug = { catchLuck: null, encounterRate: null, fast: false, hour: null, noLife: false, weather: null, noStory: !!window.__FMLAB_NOSTORY };
+  const storyOn = () => !!(ST && save && !debug.noStory);
 
   function defaultSave(name) {
-    return { v: 2, name, team: [], box: [], capsules: 5, pos: { x: Wd.start.x, y: Wd.start.y }, items: {}, gift: '', pid: newPid(), serverUrl: '', seen: {}, caught: {}, steps: 0, wins: 0, losses: 0 };
+    return { v: 2, name, team: [], box: [], capsules: 5, pos: { x: Wd.start.x, y: Wd.start.y }, items: {}, gift: '', pid: newPid(), story: newStory(), serverUrl: '', seen: {}, caught: {}, steps: 0, wins: 0, losses: 0 };
   }
+  function newStory() { return { intro: false, beaten: {}, badges: {}, starter: null, playMs: 0 }; }
   function newPid() { let s0 = ''; while (s0.length < 12) s0 += Math.random().toString(36).slice(2); return s0.replace(/[^a-z0-9]/g, '').slice(0, 12); }
   function loadSave() {
     try {
@@ -45,6 +47,8 @@
       const t = MAP[s0.pos.y] && MAP[s0.pos.y][s0.pos.x];
       if (!t || SOLID.has(t)) s0.pos = { x: Wd.start.x, y: Wd.start.y };
       if (!s0.pid) s0.pid = newPid();
+      s0.story = Object.assign(newStory(), s0.story || {});
+      if (!s0.story.starter && s0.team && s0.team[0]) s0.story.starter = s0.team[0].species;
       return s0;
     } catch (e) { return null; }
   }
@@ -56,6 +60,10 @@
   const typeOf = (mon) => E.SPECIES[mon.species].type;
   const pill = (type) => `<span class="pill" style="background:${E.TYPES[type].color}">${E.TYPES[type].name}</span>`;
   const hpCls = (r) => (r > 0.5 ? '' : r > 0.2 ? 'mid' : 'low');
+  const STATUS_TAG = { brn: ['BRU', '#f97316'], par: ['PAR', '#eab308'], slp: ['SON', '#94a3b8'], psn: ['VEL', '#a855f7'] };
+  const STATUS_TXT = { brn: 'è bruciato', par: 'è paralizzato', slp: 'si è addormentato', psn: 'è avvelenato' };
+  const statusTag = (st0) => (st0 && STATUS_TAG[st0] ? `<span class="stag" style="background:${STATUS_TAG[st0][1]}">${STATUS_TAG[st0][0]}</span>` : '');
+  const shinyMark = (m) => (m && m.shiny ? '<span class="shiny" title="Shiny">✨</span>' : '');
   const hpBar = (hp, max) => `<div class="hpbar"><i class="${hpCls(hp / max)}" style="width:${Math.max(0, (hp / max) * 100)}%"></i></div>`;
   function xpPct(mon) {
     const a = E.xpForLevel(mon.level), b = E.xpForLevel(mon.level + 1);
@@ -204,8 +212,10 @@
     const mon = E.createMonster(starter, 5);
     save.team.push(mon);
     save.seen[starter] = true; save.caught[starter] = true;
+    save.story.starter = starter;
     persist();
-    showMap(`Benvenuto nel Borgo FMLAB, ${name}! Nell'erba alta si nascondono creature selvatiche. Il Centro FMLAB (tetto rosso) cura la squadra.`);
+    if (storyOn()) showMap(); // il Prof. Ferri parla appena si apre la mappa
+    else showMap(`Benvenuto nel Borgo FMLAB, ${name}! Nell'erba alta si nascondono creature selvatiche. Il Centro FMLAB (tetto rosso) cura la squadra.`);
   }
 
   // ---------- Mappa ----------
@@ -221,7 +231,7 @@
     const lead = save.team[0];
     app.innerHTML = `<div class="screen${use3D ? ' full' : ''}">
       <div class="hud"><div class="grow"><div class="zone" id="zone">${ZONE_NAMES[zoneAt(save.pos.y)]}</div><div class="mut"><span id="clock">${clockText()}</span> · Capsule <b id="caps">${save.capsules}</b> · ${Object.keys(save.caught).length}/15</div></div>
-        <div style="width:130px">${lead ? `<div class="row" style="justify-content:space-between"><b>${esc(lead.name)}</b><span class="mut">Lv ${lead.level}</span></div>${hpBar(lead.hp, lead.maxhp)}` : ''}</div>
+        <div style="width:130px">${lead ? `<div class="row" style="justify-content:space-between"><b>${esc(lead.name)}${shinyMark(lead)}</b><span class="mut">Lv ${lead.level}</span></div>${hpBar(lead.hp, lead.maxhp)}` : ''}</div>
         <button class="ico" id="mPod" aria-label="FMLAB Pod: amici online">📱<i class="dot" id="podDot"></i></button>
         ${use3D ? `<button class="ico" id="mRot" aria-label="Gira la visuale">⟳</button>${canFullscreen() ? '<button class="ico" id="mFull" aria-label="Schermo intero">⛶</button>' : ''}` : ''}</div>
       <div class="invite" id="invite"></div><div class="centercard" id="centerCard"></div>
@@ -230,7 +240,7 @@
         <div class="dpad"><span></span><button data-d="0,-1" aria-label="Su">▲</button><span></span>
           <button data-d="-1,0" aria-label="Sinistra">◀</button><span></span><button data-d="1,0" aria-label="Destra">▶</button>
           <span></span><button data-d="0,1" aria-label="Giù">▼</button><span></span></div>
-        <div class="menu"><button class="btn sec" id="mTeam">Squadra</button><button class="btn sec" id="mDex">Archivio</button><button class="btn" id="mPvp">Sfide</button></div>
+        <div class="menu"><button class="btn sec" id="mTeam">Squadra</button><button class="btn sec" id="mDex">Archivio</button><button class="btn sec" id="mDiary">Diario</button><button class="btn" id="mPvp">Sfide</button></div>
       </div>
     </div>`;
     if (use3D) {
@@ -248,11 +258,14 @@
     document.getElementById('mTeam').onclick = showTeam;
     document.getElementById('mDex').onclick = showDex;
     document.getElementById('mPvp').onclick = showPvp;
+    document.getElementById('mDiary').onclick = showDiary;
     document.getElementById('mPod').onclick = () => showLounge(false);
     renderInvite();
     startPresence();
     if (message) toast(message);
     persist();
+    if (!use3D) startLife();
+    if (storyOn() && !save.story.intro) playIntro();
   }
   let holdTimer = null;
   function bindDpad() {
@@ -290,12 +303,20 @@
   window.addEventListener('orientationchange', () => setTimeout(layout3D, 250));
   function step(dx, dy) {
     if (screen !== 'map') { clearInterval(holdTimer); return; }
+    if (dlg.open || story.busy) { clearInterval(holdTimer); return; }
     const nx = save.pos.x + dx, ny = save.pos.y + dy;
     if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) return;
     const t = MAP[ny][nx];
     if (SOLID.has(t)) return;
+    const face = () => { if (mapScene) mapScene.yaw = Math.atan2(dx, dy); };
     const npc = life.npcs.find((n) => n.x === nx && n.y === ny);
-    if (npc) { if (mapScene) mapScene.yaw = Math.atan2(dx, dy); toast(npc.name + ': ' + npc.lines[npc.say++ % npc.lines.length]); return; }
+    if (npc) { face(); clearInterval(holdTimer); say(npc.name, [npc.lines[npc.say++ % npc.lines.length]]); return; }
+    if (storyOn()) {
+      const who = storyAt(nx, ny);
+      if (who) { face(); clearInterval(holdTimer); talkTo(who); return; }
+      const gate = ST.GATES.find((g) => !save.story.badges[g.need] && g.test(nx, ny, t));
+      if (gate) { face(); clearInterval(holdTimer); say(gate.name, gate.lines); return; }
+    }
     const prevZone = zoneAt(save.pos.y);
     const cc0 = document.getElementById('centerCard'); if (cc0) cc0.style.display = 'none';
     save.pos = { x: nx, y: ny };
@@ -316,8 +337,9 @@
     }
     if (t === 'L') {
       const today = new Date().toISOString().slice(0, 10);
-      if (save.gift !== today) { save.gift = today; save.capsules = Math.min(20, save.capsules + 3); persist(); document.getElementById('caps').textContent = save.capsules; toast('Prof. Ferri: «Tieni, 3 capsule nuove! Torna domani per altre.»'); }
-      else toast('Prof. Ferri: «Le capsule di oggi te le ho già date. Prova nell\'erba alta del fiume!»');
+      clearInterval(holdTimer);
+      if (save.gift !== today) { save.gift = today; save.capsules = Math.min(20, save.capsules + 3); persist(); document.getElementById('caps').textContent = save.capsules; say('Prof. Ferri', ['Tieni, 3 capsule nuove! Torna domani per altre.']); }
+      else say('Prof. Ferri', ['Le capsule di oggi te le ho già date. Prova nell\'erba alta del fiume!']);
       return;
     }
     const item = Wd.items.find((it) => it.x === nx && it.y === ny);
@@ -329,6 +351,7 @@
       syncLife();
     }
     if (save.steps % 10 === 0) persist();
+    if (storyOn() && checkSight()) return;
     if (use3D && !debug.noLife) {
       const mon = life.mons.find((m) => m.x === nx && m.y === ny);
       if (mon && encountersOn()) return meetRoamer(mon);
@@ -354,12 +377,13 @@
   };
   const encountersOn = () => debug.encounterRate == null || debug.encounterRate > 0;
   const itemTaken = (it) => save.items && save.items[it.id] === new Date().toISOString().slice(0, 10);
-  const freeTile = (x, y) => MAP[y] && MAP[y][x] && !SOLID.has(MAP[y][x]) && !(save.pos.x === x && save.pos.y === y) && !life.npcs.some((n) => n.x === x && n.y === y) && !life.mons.some((m) => m.x === x && m.y === y);
+  const freeTile = (x, y) => MAP[y] && MAP[y][x] && !SOLID.has(MAP[y][x]) && !(save.pos.x === x && save.pos.y === y) && !life.npcs.some((n) => n.x === x && n.y === y) && !life.mons.some((m) => m.x === x && m.y === y) && !(storyOn() && storyAt(x, y));
   function syncLife() {
     if (!mapScene) return;
     const ents = [];
     life.npcs.forEach((n) => ents.push({ key: n.key, kind: 'npc', look: n.look, x: n.x, y: n.y }));
-    if (!debug.noLife) life.mons.forEach((m) => ents.push({ key: m.key, kind: 'mon', id: m.species, x: m.x, y: m.y }));
+    if (!debug.noLife) life.mons.forEach((m) => ents.push({ key: m.key, kind: 'mon', id: m.species, shiny: !!m.shiny, x: m.x, y: m.y }));
+    if (storyOn()) storyCast().forEach((c) => ents.push({ key: 'st_' + c.id, kind: 'npc', look: c.look, x: c.x, y: c.y, alert: story.alert === c.id, yaw: Math.atan2(c.face[0], c.face[1]) }));
     Wd.items.forEach((it) => { if (!itemTaken(it)) ents.push({ key: it.id, kind: 'item', x: it.x, y: it.y }); });
     mapScene.setEntities(ents);
   }
@@ -374,6 +398,7 @@
       if (Math.abs(nx - n.hx) > 2 || Math.abs(ny - n.hy) > 2 || !freeTile(nx, ny) || MAP[ny][nx] === 'D' || MAP[ny][nx] === 'L') return;
       n.x = nx; n.y = ny;
     });
+    if (storyOn()) storyTick();
     if (!debug.noLife) {
       // creature: compaiono nell'erba vicino a te, girano, spariscono lontano
       life.mons = life.mons.filter((m) => Math.abs(m.x - P.x) + Math.abs(m.y - P.y) < 13);
@@ -384,7 +409,7 @@
         const z = zoneAt(y), list = E.ZONES[z], night = hourNow() >= 20 || hourNow() < 6;
         let pick = list[Math.floor(Math.random() * list.length)];
         if (night && Math.random() < 0.4) pick = list.find((e) => E.SPECIES[e[0]].type === 'ombra') || pick;
-        life.mons.push({ key: 'm' + (++life.n), species: pick[0], level: pick[1] + Math.floor(Math.random() * (pick[2] - pick[1] + 1)), x, y, zone: z });
+        life.mons.push({ key: 'm' + (++life.n), species: pick[0], level: pick[1] + Math.floor(Math.random() * (pick[2] - pick[1] + 1)), x, y, zone: z, shiny: Math.random() < (E.SHINY_RATE || 1 / 512) });
       }
       for (const m of life.mons) {
         if (Math.random() > 0.45) continue;
@@ -404,8 +429,240 @@
   function meetRoamer(m) {
     clearInterval(holdTimer);
     life.mons = life.mons.filter((x) => x !== m);
-    startWild(m.species, m.level, m.zone);
+    startWild(m.species, m.level, m.zone, { shiny: m.shiny });
   }
+
+  // ---------- Dialoghi stile gioco ----------
+  const dlg = { el: null, open: false, q: null, typing: null };
+  function dialogEl() {
+    if (dlg.el) return dlg.el;
+    const d = document.createElement('div');
+    d.className = 'dlg'; d.id = 'dlg';
+    d.innerHTML = '<div class="dlgName" id="dlgName"></div><div class="dlgText" id="dlgText"></div><div class="dlgNext" id="dlgNext">▼</div>';
+    d.addEventListener('pointerdown', (e) => { e.preventDefault(); advanceDialog(); });
+    document.body.appendChild(d);
+    dlg.el = d;
+    return d;
+  }
+  const fillText = (t) => String(t).replace(/\{nome\}/g, save ? save.name : '');
+  /** Mostra una o più battute; la promessa si risolve quando il giocatore le ha lette tutte. */
+  function say(name, lines) {
+    return new Promise((resolve) => {
+      if (dlg.q) dlg.q.resolve();
+      dlg.q = { name: name || '', lines: (lines || []).map(fillText), i: 0, resolve };
+      dlg.open = true;
+      const d = dialogEl();
+      d.style.display = 'block';
+      d.classList.toggle('sys', !name);
+      showDialogLine();
+    });
+  }
+  function showDialogLine() {
+    const q = dlg.q, text = q.lines[q.i] || '';
+    document.getElementById('dlgName').textContent = q.name;
+    document.getElementById('dlgName').style.display = q.name ? 'inline-block' : 'none';
+    const el = document.getElementById('dlgText');
+    clearInterval(dlg.typing);
+    if (debug.fast) { el.textContent = text; dlg.typing = null; return; }
+    // la scritta compare a velocità costante (contano i millisecondi, non i giri del timer)
+    const t0 = performance.now();
+    el.textContent = '';
+    dlg.typing = setInterval(() => {
+      const n = Math.floor((performance.now() - t0) / 1000 * 70);
+      el.textContent = text.slice(0, n);
+      if (n >= text.length) { clearInterval(dlg.typing); dlg.typing = null; }
+    }, 30);
+  }
+  function advanceDialog() {
+    const q = dlg.q;
+    if (!q) return;
+    if (dlg.typing) { clearInterval(dlg.typing); dlg.typing = null; document.getElementById('dlgText').textContent = q.lines[q.i]; return; }
+    q.i++;
+    if (q.i < q.lines.length) { showDialogLine(); return; }
+    dlg.q = null; dlg.open = false;
+    dlg.el.style.display = 'none';
+    q.resolve();
+  }
+  document.addEventListener('keydown', (e) => { if (dlg.open && (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape')) { e.preventDefault(); advanceDialog(); } });
+
+  // ---------- Storia: personaggi, vista degli allenatori, Guardiani, blocchi ----------
+  const story = { busy: false, alert: null, pos: {} };
+  const badgeOf = (id) => ST.BADGES.find((b) => b.id === id);
+  const needsMet = (tr) => (tr.needs || []).every((n) => save.story.badges[n] || save.story.beaten[n]);
+  const trainerPos = (tr) => story.pos[tr.id] || tr.pos;
+  /** Chi della storia è in mappa adesso: Prof, allenatori attivi, Guardiani, guardie dei blocchi chiusi. */
+  function storyCast() {
+    const out = [{ id: 'prof', look: ST.PROF.look, x: ST.PROF.pos.x, y: ST.PROF.pos.y, face: ST.PROF.pos.face, role: 'prof' }];
+    ST.TRAINERS.forEach((tr) => {
+      const p = trainerPos(tr);
+      const boss = tr.kind === 'guardian' || tr.kind === 'champion';
+      if (!boss && (save.story.beaten[tr.id] || !needsMet(tr))) return;
+      out.push({ id: tr.id, look: tr.look, x: p.x, y: p.y, face: p.face, role: 'trainer', tr });
+    });
+    ST.GATES.forEach((g) => { if (!save.story.badges[g.need]) out.push({ id: 'gate_' + g.id, look: g.look, x: g.pos.x, y: g.pos.y, face: g.pos.face, role: 'gate', gate: g }); });
+    return out;
+  }
+  function storyAt(x, y) { return storyCast().find((c) => c.x === x && c.y === y) || null; }
+  function hasLine(from, face, range, target) {
+    for (let i = 1; i <= range; i++) {
+      const x = from.x + face[0] * i, y = from.y + face[1] * i;
+      if (!MAP[y] || SOLID.has(MAP[y][x])) return false;
+      if (x === target.x && y === target.y) return true;
+      if (life.npcs.some((n) => n.x === x && n.y === y) || storyCast().some((c) => c.x === x && c.y === y)) return false;
+    }
+    return false;
+  }
+  /** Un allenatore ti vede? Allora parte l'incontro. */
+  function checkSight() {
+    if (story.busy || dlg.open || screen !== 'map') return false;
+    for (const c of storyCast()) {
+      if (c.role !== 'trainer' || !c.tr.sight || save.story.beaten[c.tr.id]) continue;
+      if (hasLine(c, c.face, c.tr.sight, save.pos)) { engage(c.tr); return true; }
+    }
+    return false;
+  }
+  async function engage(tr) {
+    story.busy = true;
+    clearInterval(holdTimer);
+    story.alert = tr.id; syncLife();
+    await sleep(650);
+    // ti viene incontro fino alla casella accanto
+    let p = Object.assign({}, trainerPos(tr));
+    while (Math.abs(p.x - save.pos.x) + Math.abs(p.y - save.pos.y) > 1) {
+      p = { x: p.x + p.face[0], y: p.y + p.face[1], face: p.face };
+      story.pos[tr.id] = p; syncLife();
+      await sleep(230);
+    }
+    if (mapScene) mapScene.yaw = Math.atan2(p.x - save.pos.x, p.y - save.pos.y);
+    story.alert = null; syncLife();
+    await say(tr.title + ' ' + tr.name, tr.intro);
+    startTrainer(tr);
+  }
+  async function talkTo(c) {
+    if (c.role === 'prof' && !save.story.intro) return playIntro();
+    story.busy = true;
+    try {
+      if (c.role === 'prof') {
+        await say(ST.PROF.name, [ST.objective(save.story), ST.PROF.hints[Math.floor(Math.random() * ST.PROF.hints.length)]]);
+      } else if (c.role === 'gate') {
+        await say(c.gate.name, c.gate.lines);
+      } else if (c.role === 'trainer') {
+        const tr = c.tr, b = tr.badge && badgeOf(tr.badge);
+        if (tr.badge && save.story.badges[tr.badge]) { await say(tr.title + ' ' + tr.name, tr.after || tr.defeat); }
+        else if (!needsMet(tr)) {
+          const miss = (tr.needs || []).map(badgeOf).filter((x) => x && !save.story.badges[x.id]).map((x) => x.name).join(', ');
+          await say(tr.title + ' ' + tr.name, [`Non sei ancora pronto. Torna quando avrai: ${miss || 'più esperienza'}.`]);
+        } else {
+          await say(tr.title + ' ' + tr.name, tr.intro);
+          if (b) await say('', [`${tr.name} mette in palio la ${b.name} ${b.icon}`]);
+          return startTrainer(tr);
+        }
+      }
+    } finally { if (screen === 'map') story.busy = false; }
+  }
+  /** Allenatori in ronda: girano lo sguardo; poi controlla se ti vedono. */
+  function storyTick() {
+    if (story.busy || dlg.open) return;
+    let turned = false;
+    ST.TRAINERS.forEach((tr) => {
+      if (!tr.turns || save.story.beaten[tr.id] || Math.random() > 0.12) return;
+      const p = trainerPos(tr), dirs = [tr.pos.face].concat(tr.turns);
+      const cur = dirs.findIndex((d) => d[0] === p.face[0] && d[1] === p.face[1]);
+      story.pos[tr.id] = { x: p.x, y: p.y, face: dirs[(cur + 1) % dirs.length] };
+      turned = true;
+    });
+    if (turned) checkSight();
+  }
+  async function playIntro() {
+    if (story.busy) return;
+    story.busy = true;
+    clearInterval(holdTimer);
+    await sleep(400);
+    await say(ST.PROF.name, ST.PROF.intro);
+    save.story.intro = true; persist();
+    story.busy = false;
+    toast('Obiettivo: ' + ST.objective(save.story));
+  }
+
+  // ---------- Lotte contro allenatori ----------
+  function startTrainer(tr) {
+    story.busy = false;
+    clearInterval(holdTimer);
+    const spec = typeof tr.team === 'function' ? tr.team(save.story) : tr.team;
+    const team = spec.map(([sp, lv], i) => { const m = E.createMonster(sp, lv, 'tr_' + tr.id + '_' + i, { shiny: false }); m.shiny = false; save.seen[sp] = true; return m; });
+    const seed = Math.floor(Math.random() * 4294967295);
+    const state = E.createBattle(seed, [{ name: save.name, team: save.team }, { name: tr.name, team }]);
+    const z = zoneAt(trainerPos(tr).y);
+    screen = 'battle';
+    B = {
+      mode: 'trainer', my: 0, trainer: tr, arena: tr.kind === 'champion' ? 'pvp' : (z === 'citta' ? 'prato' : z),
+      foeName: tr.name, state, view: E.clone(state), panel: 'main', msg: `${tr.title} ${tr.name} ti sfida!`,
+    };
+    B.act = trainerTurn;
+    renderBattle();
+  }
+  async function trainerTurn(action) {
+    if (B.panel === 'busy') return;
+    renderActions('busy');
+    const st = B.state;
+    const myUid = E.activeMon(st.sides[0]).uid, foe = E.activeMon(st.sides[1]);
+    const foeAct = E.aiChoose(st, 1, Math.floor(Math.random() * 1e9), B.trainer.ai);
+    const events = E.resolveTurn(st, [action, foeAct]);
+    await playEvents(events);
+    if (events.some((e) => e.t === 'faint' && e.side === 1)) await awardXp(st, myUid, foe, 1.5);
+    B.view = E.clone(st);
+    renderSprites();
+    if (st.winner != null) return endTrainer(st.winner === 0);
+    renderActions('main');
+  }
+  async function endTrainer(won) {
+    const tr = B.trainer;
+    syncTeam(B.state.sides[0].team);
+    delete story.pos[tr.id];
+    if (won) {
+      save.story.beaten[tr.id] = true;
+      save.capsules = Math.min(20, save.capsules + (tr.reward || 1));
+      setLog(`Hai battuto ${tr.title} ${tr.name}! +${tr.reward || 1} capsule`);
+      persist();
+      await say(tr.title + ' ' + tr.name, tr.defeat);
+      if (tr.badge) {
+        save.story.badges[tr.badge] = true; persist();
+        const b = badgeOf(tr.badge);
+        await say('', [`Hai ottenuto la ${b.name} ${b.icon}!`]);
+        if (tr.badge === 'campione') await say(ST.PROF.name, ['Il Cristallo Madre brilla di nuovo! Sapevo che ce l\'avresti fatta, {nome}.', 'Ora sei il Campione. Completa l\'Archivio e sfida i tuoi amici online!']);
+        else { const g = ST.GATES.find((x) => x.need === tr.badge); if (g) B.after = g.ok[0]; }
+      }
+    } else {
+      setLog(`${tr.name} ha vinto… Le tue creature corrono al Centro FMLAB.`);
+      healAll();
+      save.pos = { x: 20, y: 50 };
+      persist();
+      await say(tr.title + ' ' + tr.name, ['Torna quando sarai più forte!']);
+    }
+    renderActions('end');
+  }
+
+  // ---------- Diario ----------
+  function playTime() { const m = Math.floor((save.story.playMs || 0) / 60000); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); }
+  function showDiary() {
+    screen = 'diary';
+    const st = save.story, trainers = ST.TRAINERS.filter((t) => st.beaten[t.id]).length;
+    app.innerHTML = `<div class="screen diary">
+      <div class="row"><h2 class="grow">Diario di ${esc(save.name)}</h2><button class="btn sec" id="back">Mappa</button></div>
+      <div class="card goal"><div class="mut">Obiettivo</div><div class="goalText" id="goal">${esc(ST.objective(st))}</div></div>
+      <div class="card"><b>Medaglie</b><div class="badges">${ST.BADGES.map((b) => `<div class="badge${st.badges[b.id] ? ' got' : ''}" style="--c:${b.color}"><div class="bi">${st.badges[b.id] ? b.icon : '?'}</div><div class="bn">${st.badges[b.id] ? b.name : '???'}</div><div class="bw">${b.who}</div></div>`).join('')}</div></div>
+      <div class="card stats">
+        <div><span>Viste</span><b>${Object.keys(save.seen).length}/15</b></div>
+        <div><span>Catturate</span><b>${Object.keys(save.caught).length}/15</b></div>
+        <div><span>Allenatori battuti</span><b>${trainers}/${ST.TRAINERS.length}</b></div>
+        <div><span>Sfide online</span><b>${save.wins} V · ${save.losses} S</b></div>
+        <div><span>Passi</span><b>${save.steps}</b></div>
+        <div><span>Tempo</span><b>${playTime()}</b></div>
+      </div>
+    </div>`;
+    document.getElementById('back').onclick = () => showMap();
+  }
+  setInterval(() => { if (save && save.story && screen !== 'title' && screen !== 'starter' && !document.hidden) save.story.playMs = (save.story.playMs || 0) + 1000; }, 1000);
 
   // ---------- Lotta (comune a selvatici e sfide) ----------
   let B = null;
@@ -436,8 +693,10 @@
     if (use3D) {
       battleScene = G3.createBattleScene({ arena: B.arena, hour: hourNow() });
       document.getElementById('stage3d').style.background = `linear-gradient(${battleScene.sky[0]}, ${battleScene.sky[1]} 62%)`;
-      battleScene.setMon('me', me.species, { fainted: me.hp <= 0 });
-      battleScene.setMon('foe', foe.species, { fainted: foe.hp <= 0 });
+      battleScene.setMon('me', me.species, { fainted: me.hp <= 0, shiny: !!me.shiny });
+      battleScene.setMon('foe', foe.species, { fainted: foe.hp <= 0, shiny: !!foe.shiny });
+      B.shown = {};
+      syncStatus3D();
       if (!mount3D('stage3d', battleScene)) battleScene = null;
       layout3D();
     }
@@ -454,7 +713,7 @@
       const el = document.getElementById(mine ? 'info0' : 'info1');
       if (!el) return;
       const balls = B.mode === 'pvp' ? `<div style="margin-top:4px">${side.team.map((m) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;background:${m.hp > 0 ? '#22c55e' : '#9ca3af'}"></span>`).join('')}</div>` : '';
-      el.innerHTML = `<div class="nm"><span>${esc(mon.name)}</span><span>Lv ${mon.level}</span></div>${pill(typeOf(mon))}
+      el.innerHTML = `<div class="nm"><span>${esc(mon.name)}${shinyMark(mon)}</span><span>Lv ${mon.level}</span></div>${pill(typeOf(mon))}${statusTag(mon.status)}
         ${hpBar(mon.hp, mon.maxhp)}${mine ? `<div class="hptext">${mon.hp} / ${mon.maxhp}</div>${B.mode === 'wild' ? `<div class="xpbar"><i style="width:${xpPct(mon)}%"></i></div>` : ''}` : ''}${balls}`;
     });
   }
@@ -463,11 +722,22 @@
     [0, 1].forEach((sideIdx) => {
       const side = v.sides[sideIdx], mon = side.team[side.active];
       const mine = sideIdx === B.my;
-      if (battleScene) { battleScene.setMon(mine ? 'me' : 'foe', mon.species, { fainted: mon.hp <= 0 }); return; }
+      if (battleScene) { battleScene.setMon(mine ? 'me' : 'foe', mon.species, { fainted: mon.hp <= 0, shiny: !!mon.shiny }); return; }
       const el = document.getElementById(mine ? 'spr0' : 'spr1');
       if (el) { el.className = mine ? 'me' : 'foe'; el.innerHTML = Art.monsterSVG(mon.species, mine ? { size: 168, back: true } : { size: 140 }); }
     });
+    syncStatus3D();
     renderInfo();
+  }
+  /** Effetti 3D degli stati (se la grafica li supporta): chiamati solo quando cambiano. */
+  function syncStatus3D() {
+    if (!battleScene || typeof battleScene.status !== 'function' || !B || !B.view) return;
+    B.shown = B.shown || {};
+    [0, 1].forEach((sideIdx) => {
+      const sd = B.view.sides[sideIdx], mon = sd.team[sd.active], sl = sideIdx === B.my ? 'me' : 'foe';
+      const key = mon.uid + ':' + (mon.status || '');
+      if (B.shown[sl] !== key) { B.shown[sl] = key; battleScene.status(sl, mon.status || null); }
+    });
   }
   function renderActions(mode) {
     const box = document.getElementById('actions');
@@ -482,7 +752,7 @@
     }
     if (mode === 'end') {
       box.innerHTML = `<button class="btn green" id="endBtn" style="width:100%">${B.mode === 'pvp' ? 'Torna alle sfide' : 'Continua'}</button>`;
-      document.getElementById('endBtn').onclick = B.mode === 'pvp' ? showPvp : () => showMap();
+      document.getElementById('endBtn').onclick = B.mode === 'pvp' ? showPvp : () => showMap(B.after || undefined);
       return;
     }
     if (mode === 'switch') {
@@ -499,13 +769,17 @@
     }).join('');
     const extra = B.mode === 'wild'
       ? `<button class="btn sec" id="aSwitch">Squadra</button><button class="btn green" id="aCatch">Capsula (${save.capsules})</button><button class="btn sec" id="aRun">Fuga</button>`
-      : `<button class="btn sec" id="aSwitch">Squadra</button><span></span><button class="btn red" id="aForfeit">Abbandona</button>`;
+      : B.mode === 'trainer'
+        ? `<button class="btn sec" id="aSwitch">Squadra</button><span class="mut" style="grid-column:span 2;align-self:center;text-align:center">Lotta contro ${esc(B.foeName)}: niente fuga!</span>`
+        : `<button class="btn sec" id="aSwitch">Squadra</button><span></span><button class="btn red" id="aForfeit">Abbandona</button>`;
     box.innerHTML = `<div class="moves">${moves}</div><div class="acts" style="margin-top:8px">${extra}</div>`;
     box.querySelectorAll('.move').forEach((b) => { b.onclick = () => B.act({ kind: 'move', move: b.dataset.m }); });
     document.getElementById('aSwitch').onclick = () => renderActions('switch');
     if (B.mode === 'wild') {
       document.getElementById('aCatch').onclick = () => B.catchIt();
       document.getElementById('aRun').onclick = () => B.run();
+    } else if (B.mode === 'trainer') {
+      // niente da aggiungere
     } else {
       const f = document.getElementById('aForfeit');
       f.onclick = () => {
@@ -553,11 +827,41 @@
         }
         case 'switch':
           v.sides[ev.side].active = ev.to;
-          if (battleScene) battleScene.setMon(slot(ev.side), v.sides[ev.side].team[ev.to].species, { force: true });
+          if (battleScene) battleScene.setMon(slot(ev.side), v.sides[ev.side].team[ev.to].species, { force: true, shiny: !!v.sides[ev.side].team[ev.to].shiny });
           renderSprites();
           setLog(ev.side === B.my ? `Vai, ${ev.name}!` : (B.mode === 'wild' ? `Arriva ${ev.name}!` : `${B.foeName} manda in campo ${ev.name}!`));
           await sleep(750);
           break;
+        case 'status': {
+          const mon = v.sides[ev.side].team[v.sides[ev.side].active];
+          if (mon) mon.status = ev.status;
+          setLog(`${displayName(ev.side, ev.name || (mon && mon.name) || '')} ${STATUS_TXT[ev.status] || 'ha un problema'}!`);
+          renderInfo(); syncStatus3D();
+          await sleep(750);
+          break;
+        }
+        case 'statusDmg': {
+          const mon = v.sides[ev.side].team[v.sides[ev.side].active];
+          if (mon) { mon.hp = ev.hp; if (ev.maxhp) mon.maxhp = ev.maxhp; }
+          const nm = displayName(ev.side, (mon && mon.name) || '');
+          setLog(ev.status === 'brn' ? `${nm} soffre per la bruciatura!` : `${nm} soffre per il veleno!`);
+          if (battleScene) battleScene.hit(slot(ev.side), { crit: false, eff: 1 });
+          renderInfo();
+          await sleep(650);
+          break;
+        }
+        case 'cant':
+          setLog(ev.reason === 'slp' ? `${displayName(ev.side, ev.name)} dorme profondamente…` : `${displayName(ev.side, ev.name)} è paralizzato! Non riesce a muoversi!`);
+          await sleep(700);
+          break;
+        case 'wake': {
+          const mon = v.sides[ev.side].team[v.sides[ev.side].active];
+          if (mon) mon.status = null;
+          setLog(`${displayName(ev.side, ev.name)} si è svegliato!`);
+          renderInfo(); syncStatus3D();
+          await sleep(650);
+          break;
+        }
         case 'forfeit':
           setLog(ev.side === B.my ? 'Hai abbandonato la sfida.' : `${B.foeName} ha abbandonato la sfida.`);
           await sleep(800);
@@ -568,14 +872,16 @@
   }
 
   // ---------- Lotta con creatura selvatica ----------
-  function startWild(speciesId, level, zone) {
-    const wild = E.createMonster(speciesId, level);
+  function startWild(speciesId, level, zone, opts) {
+    const o = opts && opts.shiny != null ? { shiny: !!opts.shiny } : undefined;
+    const wild = E.createMonster(speciesId, level, undefined, o);
+    if (o && o.shiny) wild.shiny = true;
     save.seen[speciesId] = true;
     const state = E.createBattle(Math.floor(Math.random() * 4294967295), [
       { name: save.name, team: save.team }, { name: 'Selvatico', team: [wild] },
     ]);
     screen = 'battle';
-    B = { mode: 'wild', my: 0, arena: zone === 'citta' ? 'prato' : zone, foeName: 'Selvatico', state, view: E.clone(state), panel: 'main', msg: `Un ${wild.name} selvatico (Lv ${level}) salta fuori dall'erba!` };
+    B = { mode: 'wild', my: 0, arena: zone === 'citta' ? 'prato' : zone, foeName: 'Selvatico', state, view: E.clone(state), panel: 'main', msg: wild.shiny ? `✨ Un ${wild.name} selvatico (Lv ${level}) luccica nell'erba! È uno shiny!` : `Un ${wild.name} selvatico (Lv ${level}) salta fuori dall'erba!` };
     B.act = (a) => wildTurn(a);
     B.catchIt = wildCatch;
     B.run = wildRun;
@@ -591,27 +897,28 @@
     const events = E.resolveTurn(st, [action.kind === 'none' ? { kind: 'none' } : action, foeAct]);
     await playEvents(events);
     // esperienza se il selvatico è esausto
-    if (events.some((e) => e.t === 'faint' && e.side === 1)) {
-      const mon = st.sides[0].team.find((m) => m.uid === myUid) || E.activeMon(st.sides[0]);
-      if (mon.hp > 0) {
-        const foe = st.sides[1].team[0];
-        const gain = E.xpReward(foe);
-        setLog(`${mon.name} guadagna ${gain} punti esperienza.`);
-        await sleep(800);
-        const evs = E.gainXp(mon, gain);
-        for (const ev of evs) {
-          if (ev.kind === 'level') setLog(`${mon.name} sale al livello ${ev.level}!`);
-          if (ev.kind === 'move') setLog(`${mon.name} impara ${ev.move}!`);
-          if (ev.kind === 'evolve') { setLog(`Cosa? ${ev.from} si evolve in ${ev.to}!`); save.seen[mon.species] = true; save.caught[mon.species] = true; }
-          B.view = E.clone(st); renderSprites();
-          await sleep(1000);
-        }
-      }
-    }
+    if (events.some((e) => e.t === 'faint' && e.side === 1)) await awardXp(st, myUid, st.sides[1].team[0], 1);
     B.view = E.clone(st);
     renderSprites();
     if (st.winner != null) return endWild(st.winner === 0 ? 'win' : 'lose');
     renderActions('main');
+  }
+
+  /** Esperienza alla creatura che ha combattuto (mult 1.5 per gli allenatori). */
+  async function awardXp(st, myUid, foe, mult) {
+    const mon = st.sides[0].team.find((m) => m.uid === myUid) || E.activeMon(st.sides[0]);
+    if (!mon || mon.hp <= 0) return;
+    const gain = Math.floor(E.xpReward(foe) * mult);
+    setLog(`${mon.name} guadagna ${gain} punti esperienza.`);
+    await sleep(800);
+    const evs = E.gainXp(mon, gain);
+    for (const ev of evs) {
+      if (ev.kind === 'level') setLog(`${mon.name} sale al livello ${ev.level}!`);
+      if (ev.kind === 'move') setLog(`${mon.name} impara ${ev.move}!`);
+      if (ev.kind === 'evolve') { setLog(`Cosa? ${ev.from} si evolve in ${ev.to}!`); save.seen[mon.species] = true; save.caught[mon.species] = true; }
+      B.view = E.clone(st); renderSprites();
+      await sleep(1000);
+    }
   }
 
   async function wildCatch() {
@@ -677,7 +984,7 @@
     else {
       setLog('Le tue creature sono esauste… Corri al Centro FMLAB per curarle.');
       healAll();
-      save.pos = { x: 14, y: 36 };
+      save.pos = { x: 20, y: 50 }; // davanti al Centro FMLAB
     }
     persist();
     renderActions('end');
@@ -708,7 +1015,7 @@
   }
   function monRow(m, lead, attrs) {
     return `<button class="mon${lead ? ' lead' : ''}" ${attrs} style="text-align:left">${Art.monsterSVG(m.species, { size: 64 })}
-      <div class="info"><div class="nm"><span>${esc(m.name)} ${pill(typeOf(m))}</span><span class="mut">Lv ${m.level}</span></div>
+      <div class="info"><div class="nm"><span>${esc(m.name)}${shinyMark(m)} ${pill(typeOf(m))}${statusTag(m.status)}</span><span class="mut">Lv ${m.level}</span></div>
       ${hpBar(m.hp, m.maxhp)}<div class="row mut" style="justify-content:space-between;font-size:12px;margin-top:3px"><span>${m.hp}/${m.maxhp} PS</span><span>${m.moves.map((x) => E.MOVES[x].name).join(' · ')}</span></div>
       <div class="xpbar"><i style="width:${xpPct(m)}%"></i></div></div></button>`;
   }
@@ -723,7 +1030,7 @@
       <div class="dex">${ids.map((id, n) => {
         const caught = save.caught[id], seen = save.seen[id];
         return `<button class="dexc${caught ? ' got' : ''}" data-id="${id}" ${caught ? '' : 'disabled'}>${Art.monsterSVG(id, { size: 84, silhouette: !caught })}<div class="num">#${String(n + 1).padStart(2, '0')}</div>
-          <div>${seen ? E.SPECIES[id].name : '???'}</div>${caught ? pill(E.SPECIES[id].type) : ''}</button>`;
+          <div>${seen ? E.SPECIES[id].name : '???'}${save.team.concat(save.box).some((m) => m.species === id && m.shiny) ? ' ✨' : ''}</div>${caught ? pill(E.SPECIES[id].type) : ''}</button>`;
       }).join('')}</div>
       <div class="mut" style="text-align:center">Tocca una creatura catturata per vederla in 3D.</div>
     </div>`;
@@ -1001,6 +1308,9 @@
     newGame,
     startWild: (sp, lv, zone) => startWild(sp, lv, zone || 'prato'),
     showMap, showTeam, showDex, showPvp, showViewer, showLounge, life, world: Wd, serverMode, presence, hello,
+    showDiary, story, startTrainer, say, get battle() { return B; }, get dialog() { return dlg; },
+    get dialogLine() { return dlg.q ? (dlg.q.name ? dlg.q.name + ': ' : '') + dlg.q.lines[dlg.q.i] : ''; },
+    skipDialog: () => { let n = 0; while (dlg.open && n++ < 50) { if (dlg.typing) advanceDialog(); advanceDialog(); } },
     use3D, get gl() { return G3 ? G3.stats : null; },
     step,
   };

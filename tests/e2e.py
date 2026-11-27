@@ -11,6 +11,8 @@ def check(name, ok, detail=''):
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
+    NOSTORY = "window.__FMLAB_NOSTORY = true"   # i controlli classici girano senza storia; quelli della storia la riaccendono
+    ctx.add_init_script(NOSTORY)
     errs = []
     a = ctx.new_page(); a.on('pageerror', lambda e: errs.append('A: ' + str(e)))
     a.goto(BASE); a.wait_for_timeout(400)
@@ -43,9 +45,12 @@ with sync_playwright() as p:
     a.evaluate("FMLAB.save.pos = {x:8,y:49}; FMLAB.save.gift = ''; FMLAB.showMap()"); a.wait_for_timeout(150)
     c0 = a.evaluate('FMLAB.save.capsules'); a.evaluate('FMLAB.step(0,-1)')
     check('Regalo del Laboratorio: +3 capsule al giorno', a.evaluate('FMLAB.save.capsules') == min(20, c0 + 3))
+    a.evaluate('FMLAB.skipDialog()')
     n = a.evaluate("FMLAB.life.npcs[1]"); a.evaluate(f"FMLAB.save.pos = {{x:{n['x']-1},y:{n['y']}}}; FMLAB.showMap()"); a.wait_for_timeout(150)
     a.evaluate("FMLAB.life.npcs[1].x = %d; FMLAB.life.npcs[1].y = %d; FMLAB.step(1,0)" % (n['x'], n['y']))
-    check('Gli abitanti parlano e non si attraversano', a.evaluate('FMLAB.save.pos.x') == n['x'] - 1 and 'Beppe' in a.inner_text('#toast'), a.inner_text('#toast'))
+    line = a.evaluate('FMLAB.dialogLine')
+    check('Gli abitanti parlano (finestra di dialogo) e non si attraversano', a.evaluate('FMLAB.save.pos.x') == n['x'] - 1 and 'Beppe' in line and a.locator('#dlg').is_visible(), line)
+    a.evaluate('FMLAB.skipDialog()')
     spot = a.evaluate(f"(() => {{ const g = {W}.grid; for (let y = 35; y < 44; y++) for (let x = 2; x < 29; x++) if (g[y][x] === '.' && g[y][x+1] === ',') return {{x, y}}; }})()")
     a.evaluate(f"FMLAB.save.pos = {{x:{spot['x']},y:{spot['y']}}}; FMLAB.showMap()"); a.wait_for_timeout(150)
     a.evaluate(f"FMLAB.debug.encounterRate = null; FMLAB.life.mons.length = 0; FMLAB.life.mons.push({{key:'prova', species:'voltino', level:5, x:{spot['x']+1}, y:{spot['y']}, zone:'prato'}}); FMLAB.step(1,0)")
@@ -64,8 +69,11 @@ with sync_playwright() as p:
     a.evaluate('FMLAB.debug.fast = false')
     log = a.inner_text('#log'); a.screenshot(path=OUT + '06-lotta-mossa.png')
     check('Dopo la mossa il testo della lotta cambia', 'selvatico' in log or 'Spruzzo' in log or 'efficace' in log, log)
-    # cattura sicura
+    # cattura sicura (aspetta che il turno finisca: sulle macchine lente serve più tempo)
     a.evaluate('FMLAB.debug.catchLuck = 1')
+    for _ in range(50):
+        if a.locator('#aCatch').count() or a.locator('#endBtn').count(): break
+        a.wait_for_timeout(100)
     if a.locator('#aCatch').count():
         a.evaluate('FMLAB.debug.fast = true'); a.click('#aCatch'); a.wait_for_timeout(300); a.evaluate('FMLAB.debug.fast = false')
         a.screenshot(path=OUT + '07-cattura.png')
@@ -140,10 +148,10 @@ with sync_playwright() as p:
     names = s1.inner_text('#lnList')
     check('Sala Online: Marco vede Sara online', 'Sara' in names, names[:80])
     s1.evaluate("FMLAB.debug.fast = false"); s1.wait_for_timeout(700); s1.screenshot(path=OUT + '18-sala-online.png'); s1.evaluate("FMLAB.debug.fast = true")
-    s1.locator('#lnList [data-f]').first.click(); s1.wait_for_timeout(500)
-    for _ in range(30):
+    s1.locator('#lnList .mon', has_text='Sara').locator('[data-f]').click(); s1.wait_for_timeout(500)
+    for _ in range(80):
         if s2.locator('#invOk').count(): break
-        s2.evaluate("FMLAB.hello()"); s2.wait_for_timeout(150)
+        s2.evaluate("FMLAB.hello()"); s2.wait_for_timeout(200)
     check('Sara riceve l\'invito sulla mappa', s2.locator('#invOk').count() == 1, s2.evaluate("FMLAB.screen + ' ' + JSON.stringify(FMLAB.presence.invites) + ' ' + localStorage.getItem('fmlab-srv-inv_sara0000test')"))
     s2.evaluate("FMLAB.debug.fast = false"); s2.wait_for_timeout(600); s2.screenshot(path=OUT + '19-invito-sulla-mappa.png'); s2.evaluate("FMLAB.debug.fast = true")
     s2.click('#invOk'); s2.wait_for_timeout(500)
@@ -154,6 +162,7 @@ with sync_playwright() as p:
     s1.close(); s2.close()
     # telefono girato: lotta a tutto schermo con i comandi a destra
     l = b.new_page(viewport={'width': 844, 'height': 390}, device_scale_factor=2, is_mobile=True, has_touch=True)
+    l.add_init_script(NOSTORY)
     l.on('pageerror', lambda e: errs.append('L: ' + str(e)))
     l.goto(BASE); l.wait_for_timeout(300)
     l.evaluate("FMLAB.newGame('Giro','semino')"); l.evaluate("FMLAB.startWild('voltino', 5, 'bosco')"); l.wait_for_timeout(1500)
@@ -168,6 +177,7 @@ with sync_playwright() as p:
     l.screenshot(path=OUT + '17-orizzontale-mappa.png')
     # versione Google: un solo file Index.html, server con google.script.run
     g = b.new_page(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
+    g.add_init_script(NOSTORY)
     g.on('pageerror', lambda e: errs.append('G: ' + str(e)))
     g.add_init_script("""(() => { let srv = null, mem = {};
       const st = { get: (k) => (k in mem ? mem[k] : null), set: (k, v) => { mem[k] = v; }, del: (k) => { delete mem[k]; }, keys: () => Object.keys(mem), lock: (fn) => fn(), now: () => Date.now(), random: () => Math.random() };
@@ -185,6 +195,82 @@ with sync_playwright() as p:
     c.goto(BASE + '?2d'); c.wait_for_timeout(300)
     c.evaluate("FMLAB.newGame('Prova','semino')"); c.evaluate("FMLAB.debug.fast = true"); c.evaluate("FMLAB.startWild('ombrino', 4, 'grotta')"); c.wait_for_timeout(200)
     check('Riserva 2D senza WebGL', not c.evaluate('FMLAB.use3D') and c.locator('#spr1 svg').count() == 1)
+    # ---------- STORIA OFFLINE (con la storia accesa) ----------
+    sc = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
+    st = sc.new_page(); st.on('pageerror', lambda e: errs.append('ST: ' + str(e)))
+    st.goto(BASE); st.wait_for_timeout(300)
+    st.evaluate("localStorage.clear(); FMLAB.debug.encounterRate = 0; FMLAB.debug.noLife = true; FMLAB.debug.noStory = false")
+    st.evaluate("FMLAB.newGame('Eroe','goccino')"); st.wait_for_timeout(1800)
+    line = st.evaluate('FMLAB.dialogLine')
+    check('Storia: il Prof. Ferri parla all\'inizio', st.locator('#dlg').is_visible() and line.startswith('Prof. Ferri') and 'Eroe' in line, line)
+    st.screenshot(path=OUT + '20-storia-prof.png')
+    st.evaluate('FMLAB.skipDialog()'); st.wait_for_timeout(200)
+    check('Storia: dopo l\'intro il Diario ha un obiettivo', st.evaluate('FMLAB.save.story.intro') is True)
+    st.evaluate("FMLAB.debug.fast = true")
+    for _ in range(9):
+        st.evaluate('FMLAB.step(0,-1)'); st.wait_for_timeout(80)
+        if st.evaluate('FMLAB.story.busy || FMLAB.dialog.open'): break
+    for _ in range(40):
+        if st.evaluate('FMLAB.dialog.open'): break
+        st.wait_for_timeout(100)
+    line = st.evaluate('FMLAB.dialogLine')
+    check('Allenatore: Rocco ti vede al cancello e viene a parlarti', 'Rocco' in line and st.evaluate('FMLAB.save.pos.y') >= 46, line + ' @ ' + str(st.evaluate('FMLAB.save.pos')))
+    st.evaluate('FMLAB.skipDialog()'); st.wait_for_timeout(300)
+    check('Allenatore: parte la lotta contro Rocco (niente fuga, niente cattura)', st.evaluate('FMLAB.screen') == 'battle' and st.evaluate('FMLAB.battle.mode') == 'trainer' and st.locator('#aCatch').count() == 0 and st.locator('#aRun').count() == 0)
+    def win_trainer(pg_):
+        for _ in range(30):
+            if pg_.evaluate('FMLAB.screen') != 'battle' or pg_.locator('#endBtn').count(): break
+            if pg_.evaluate('FMLAB.dialog.open'): pg_.evaluate('FMLAB.skipDialog()')
+            pg_.evaluate("FMLAB.battle.state.sides[1].team.forEach(m => { m.hp = Math.min(m.hp, 1); }); FMLAB.battle.state.sides[0].team.forEach(m => { m.hp = m.maxhp; })")
+            if pg_.locator('.move').count(): pg_.locator('.move').first.click()
+            pg_.wait_for_timeout(250)
+        for _ in range(20):
+            if pg_.locator('#endBtn').count(): break
+            pg_.evaluate('FMLAB.skipDialog()'); pg_.wait_for_timeout(120)
+    win_trainer(st)
+    check('Vittoria contro Rocco salvata', st.evaluate('FMLAB.save.story.beaten.rival1') is True)
+    st.click('#endBtn'); st.wait_for_timeout(300)
+    st.evaluate("FMLAB.save.pos = {x:15,y:47}; FMLAB.showMap()"); st.wait_for_timeout(200)
+    st.evaluate('FMLAB.step(0,-1)'); st.wait_for_timeout(600)
+    check('Un allenatore battuto non ti risfida', st.evaluate('FMLAB.screen') == 'map' and not st.evaluate('FMLAB.dialog.open') and st.evaluate('FMLAB.save.pos.y') == 46)
+    # ponte chiuso senza Medaglia Foglia
+    st.evaluate("FMLAB.save.pos = {x:18,y:30}; FMLAB.showMap()"); st.wait_for_timeout(200)
+    st.evaluate('FMLAB.step(0,-1)'); st.wait_for_timeout(200)
+    line = st.evaluate('FMLAB.dialogLine')
+    check('Ponte bloccato senza la Medaglia Foglia', st.evaluate('FMLAB.save.pos.y') == 30 and 'Nino' in line, line)
+    st.evaluate("FMLAB.debug.fast = false"); st.wait_for_timeout(900); st.screenshot(path=OUT + '21-ponte-bloccato.png'); st.evaluate("FMLAB.debug.fast = true")
+    st.evaluate('FMLAB.skipDialog()')
+    # Guardiana Flora: ci parli e lotti per la medaglia
+    fl = st.evaluate("FMLAB.story && window.FMLABStory.TRAINERS.find(t => t.id === 'flora').pos")
+    st.evaluate(f"FMLAB.save.pos = {{x:{fl['x'] - 1},y:{fl['y']}}}; FMLAB.showMap()"); st.wait_for_timeout(200)
+    st.evaluate('FMLAB.step(1,0)'); st.wait_for_timeout(200)
+    line = st.evaluate('FMLAB.dialogLine')
+    check('Guardiana Flora parla quando la tocchi', 'Flora' in line, line)
+    for _ in range(10):
+        if st.evaluate('FMLAB.screen') == 'battle': break
+        st.evaluate('FMLAB.skipDialog()'); st.wait_for_timeout(150)
+    check('Lotta contro la Guardiana (IA esperta)', st.evaluate('FMLAB.screen') == 'battle' and st.evaluate('FMLAB.battle.trainer.ai') == 'esperto')
+    win_trainer(st)
+    check('Medaglia Foglia ottenuta', st.evaluate('FMLAB.save.story.badges.prato') is True)
+    st.click('#endBtn'); st.wait_for_timeout(300)
+    st.evaluate('FMLAB.skipDialog()')
+    st.evaluate("FMLAB.save.pos = {x:18,y:30}; FMLAB.showMap()"); st.wait_for_timeout(200)
+    st.evaluate('FMLAB.step(0,-1)'); st.wait_for_timeout(200)
+    check('Con la medaglia il ponte si attraversa', st.evaluate('FMLAB.save.pos.y') == 29)
+    st.evaluate("FMLAB.debug.fast = false; FMLAB.showDiary()"); st.wait_for_timeout(400)
+    txt = st.inner_text('.screen')
+    check('Diario: obiettivo, medaglia vinta e statistiche', 'Medaglia Foglia' in txt and 'Marina' in txt and 'Allenatori battuti' in txt and st.locator('.badge.got').count() == 1, txt[:120].replace(chr(10), ' | '))
+    st.screenshot(path=OUT + '22-diario.png')
+    # orizzontale: dialogo e Diario
+    lc = b.new_context(viewport={'width': 844, 'height': 390}, device_scale_factor=2, is_mobile=True, has_touch=True)
+    ls = lc.new_page(); ls.on('pageerror', lambda e: errs.append('LS: ' + str(e)))
+    ls.goto(BASE); ls.wait_for_timeout(300)
+    ls.evaluate("localStorage.clear(); FMLAB.debug.encounterRate = 0; FMLAB.debug.noLife = true; FMLAB.newGame('Eroe','semino')"); ls.wait_for_timeout(2600)
+    ls.screenshot(path=OUT + '23-orizzontale-dialogo.png')
+    ls.evaluate('FMLAB.skipDialog(); FMLAB.showDiary()'); ls.wait_for_timeout(300)
+    ls.screenshot(path=OUT + '24-orizzontale-diario.png')
+    check('Orizzontale: dialogo e Diario senza errori', ls.evaluate('FMLAB.screen') == 'diary')
+    sc.close(); lc.close()
     check('Nessun errore JavaScript', not errs, '; '.join(errs))
     b.close()
 print(f"\nRISULTATO: {sum(results)} PASS, {len(results)-sum(results)} FAIL")

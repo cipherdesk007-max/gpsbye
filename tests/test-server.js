@@ -153,6 +153,24 @@ now += 100 * 1000;
 check('Dopo 90 secondi senza segnali non sei più online', call({ action: 'hello', pid: pidB, name: 'Luca' }).online.length === 0);
 now += 11 * 60 * 1000; call({ action: 'hello', pid: pidB, name: 'Luca' });
 check('Presenze vecchie cancellate', !store.has('pres_' + pidA));
+// Modalità Orda: classifica con controlli
+const pidH = 'orda0000aa1';
+check('Orda: punteggio valido accettato', call({ action: 'hordeScore', pid: pidH, name: 'Francesco', score: 12000, wave: 8, species: 'fiammino' }).ok === true);
+check('Orda: secondo invio troppo presto rifiutato', call({ action: 'hordeScore', pid: pidH, name: 'Francesco', score: 13000, wave: 9, species: 'fiammino' }).ok === false);
+now += 21 * 1000;
+check('Orda: punteggio impossibile (oltre ondata x 5000) rifiutato', call({ action: 'hordeScore', pid: pidH, name: 'Francesco', score: 50001, wave: 10, species: 'fiammino' }).ok === false);
+check('Orda: ondata fuori scala rifiutata', call({ action: 'hordeScore', pid: 'orda0000bb2', name: 'Luca', score: 10, wave: 999, species: 'goccino' }).ok === false);
+check('Orda: creatura inventata rifiutata', call({ action: 'hordeScore', pid: 'orda0000bb2', name: 'Luca', score: 10, wave: 2, species: 'pikachu' }).ok === false);
+check('Orda: punteggio non intero rifiutato', call({ action: 'hordeScore', pid: 'orda0000bb2', name: 'Luca', score: 10.5, wave: 2, species: 'goccino' }).ok === false);
+check('Orda: Luca entra in classifica', call({ action: 'hordeScore', pid: 'orda0000bb2', name: 'Luca', score: 9000, wave: 7, species: 'goccino' }).ok === true);
+now += 21 * 1000;
+const worse = call({ action: 'hordeScore', pid: pidH, name: 'Francesco', score: 5000, wave: 4, species: 'fiammino' });
+check('Orda: un punteggio peggiore non sostituisce il record', worse.ok && worse.best === false);
+let ht = call({ action: 'hordeTop' });
+check('Orda: classifica ordinata col record migliore', ht.ok && ht.rows[0].name === 'Francesco' && ht.rows[0].score === 12000 && ht.rows[1].name === 'Luca', JSON.stringify(ht.rows));
+for (let k = 0; k < 70; k++) { now += 21 * 1000; call({ action: 'hordeScore', pid: 'orda' + String(k).padStart(7, '0'), name: 'Gioc' + k, score: 100 + k, wave: 3, species: 'semino' }); }
+check('Orda: si tengono al massimo 50 nomi (sotto 9 KB)', Object.keys(JSON.parse(store.get('horde_lb'))).length === 50 && store.get('horde_lb').length < 9000, store.get('horde_lb').length + ' byte');
+check('Orda: hordeTop restituisce 20 righe', call({ action: 'hordeTop' }).rows.length === 20);
 check('Motore identico tra server e telefono (stesso file)', fs.readFileSync(path.join(dist, 'engine.gs'), 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'game', 'engine.js'), 'utf8'));
 
 console.log(`\nRISULTATO: ${pass} PASS, ${fail} FAIL`);

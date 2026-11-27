@@ -22,14 +22,36 @@
   const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // niente 0/O, 1/I
 
   /**
-   * storage: { get(key)->string|null, set(key, string), del(key), keys()->[string], lock(fn), now()->ms, random()->0..1 }
+   * storage: { get(key)->string|null, set(key, string), del(key), keys()->[string], lock(fn), now()->ms, random()->0..1,
+   *            cache?: { get(k), put(k, v, ttlSec), getAll([k])->{k:v}, remove(k) } }
+   * Su Google la cache è CacheService: non consuma la quota giornaliera delle proprietà (50.000 letture/scritture
+   * al giorno per un account Gmail), quindi presenze, inviti, Raid e letture delle stanze passano da lì.
    */
   function createServer(storage, E) {
+    const C = storage.cache || fallbackCache();
+    function fallbackCache() {           // modalità locale e prove: stessa logica, salvata nello storage normale
+      return {
+        get(k) {
+          const raw = storage.get('c_' + k);
+          if (!raw) return null;
+          try { const o = JSON.parse(raw); if (o.e < storage.now()) { storage.del('c_' + k); return null; } return o.v; } catch (e) { return null; }
+        },
+        put(k, v, ttl) { storage.set('c_' + k, JSON.stringify({ v, e: storage.now() + ttl * 1000 })); },
+        getAll(keys) { const o = {}; keys.forEach((k) => { const v = this.get(k); if (v != null) o[k] = v; }); return o; },
+        remove(k) { storage.del('c_' + k); },
+      };
+    }
     function load(code) {
+      const c = C.get('room_' + code);
+      if (c) { try { return JSON.parse(c); } catch (e) { /* cache rovinata: si legge l'originale */ } }
       const raw = storage.get('room_' + code);
       return raw ? JSON.parse(raw) : null;
     }
-    function save(room) { storage.set('room_' + room.code, JSON.stringify(room)); }
+    function save(room) {
+      const json = JSON.stringify(room);
+      storage.set('room_' + room.code, json);
+      C.put('room_' + room.code, json, 21600);
+    }
 
     function cleanName(name) {
       return String(name || '').replace(/[^\p{L}\p{N} _-]/gu, '').trim().slice(0, 16);
@@ -45,11 +67,13 @@
     }
 
     function cleanup() {
+      if (C.get('cleanup_t')) return;     // al massimo una pulizia l'ora: risparmia la quota
+      C.put('cleanup_t', '1', 3600);
       const now = storage.now();
       storage.keys().filter((k) => k.indexOf('room_') === 0).forEach((k) => {
         try {
           const r = JSON.parse(storage.get(k));
-          if (!r || now - r.updated > ROOM_TTL_MS) storage.del(k);
+          if (!r || now - r.updated > ROOM_TTL_MS) { storage.del(k); C.remove(k); }
         } catch (e) { storage.del(k); }
       });
     }
@@ -57,9 +81,41 @@
     function cleanPid(pid) { const v = String(pid || ''); return /^[a-z0-9]{8,16}$/.test(v) ? v : ''; }
     function readInvites(pid) {
       let list = [];
-      try { list = JSON.parse(storage.get('inv_' + pid) || '[]'); } catch (e) { list = []; }
+      try { list = JSON.parse(C.get('inv_' + pid) || '[]'); } catch (e) { list = []; }
       const now = storage.now();
-      return list.filter((i) => now - i.t < INVITE_TTL_MS && (() => { const r = load(i.code); return r && r.status === 'waiting'; })());
+      return list.filter((i) => now - i.t < INVITE_TTL_MS && (() => {
+        if (i.kind === 'raid') { const rd = loadRaid(i.code); return rd && rd.status === 'lobby'; }
+        const r = load(i.code); return r && r.status === 'waiting';
+      })());
+    }
+    const PRES_TTL_S = Math.round(PRESENCE_TTL_MS / 1000);
+    function presenceOf(pid) { const v = C.get('pres_' + pid); try { return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+
+    // ---------- Raid cooperativo: fino a 5 amici contro un boss con la vita in comune ----------
+    const RAID_LV_UP = Number(storage.raidLvUp || 2), RAID_ATK = Number(storage.raidAtk || 0.5), RAID_HP_BASE = 1.5, RAID_HP_PER = 1.4;
+    const RAID_MAX = 5, RAID_TTL_S = 3600, RAID_TIME_MS = 12 * 60 * 1000, RAID_MOVE_MS = 700;
+    const RAID_BOSSES = ['vulkarn', 'abissaro', 'silvatron', 'granitor', 'spettrax', 'fulmix'];
+    function loadRaid(code) { const v = C.get('raid_' + code); try { return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+    function saveRaid(r) { r.updated = storage.now(); C.put('raid_' + r.code, JSON.stringify(r), RAID_TTL_S); }
+    function newRaidCode() {
+      for (let tries = 0; tries < 20; tries++) {
+        let c = 'R';
+        for (let i = 0; i < 4; i++) c += CODE_ALPHABET[Math.floor(storage.random() * CODE_ALPHABET.length)];
+        if (!loadRaid(c)) return c;
+      }
+      throw new Error('Impossibile creare un codice');
+    }
+    function laneHp(lane) { const t = lane.sides[0].team; return t.reduce((a, m) => a + Math.max(0, m.hp), 0) / Math.max(1, t.reduce((a, m) => a + m.maxhp, 0)); }
+    function raidView(r, pid, extra) {
+      const me = r.players.find((x) => x.pid === pid);
+      const out = {
+        ok: true, code: r.code, status: r.status, host: r.host === pid, joined: !!me,
+        boss: { species: r.boss.species, level: r.boss.level, hp: r.boss.hp, maxhp: r.boss.maxhp },
+        players: r.players.map((x) => ({ name: x.name, lead: (x.team[0] || {}).species, hp: x.lane ? Math.round(laneHp(x.lane) * 100) : 100, dealt: x.dealt, done: x.done })),
+        log: r.log, left: r.started ? Math.max(0, RAID_TIME_MS - (storage.now() - r.started)) : RAID_TIME_MS,
+      };
+      if (me && me.lane) out.me = { turn: me.lane.turn, winner: me.lane.winner, sides: me.lane.sides, done: me.done };
+      return Object.assign(out, extra || {});
     }
 
     function parseTeam(json) {
@@ -198,14 +254,21 @@
         if (!pid || !name) return { ok: false, error: 'Giocatore non valido.' };
         const now = storage.now();
         const lead = E.SPECIES[p.lead] ? p.lead : null;
-        storage.set('pres_' + pid, JSON.stringify({ name, lead, lv: Math.max(1, Math.min(100, Number(p.lv) || 1)), zone: cleanName(p.zone).slice(0, 12), t: now }));
+        const xy = (v) => { const n = Number(v); return Number.isInteger(n) && n >= 0 && n < 400 ? n : null; };
+        const me = { name, lead, shiny: p.shiny === true || p.shiny === 'true', lv: Math.max(1, Math.min(100, Number(p.lv) || 1)), zone: cleanName(p.zone).slice(0, 14), x: xy(p.x), y: xy(p.y), t: now };
+        C.put('pres_' + pid, JSON.stringify(me), PRES_TTL_S);
+        let idx = [];
+        try { idx = JSON.parse(C.get('pres_idx') || '[]'); } catch (e) { idx = []; }
+        if (idx.indexOf(pid) < 0) idx.push(pid);
+        const vals = C.getAll(idx.map((k) => 'pres_' + k));
+        const alive = idx.filter((k) => k === pid || vals['pres_' + k]);
+        C.put('pres_idx', JSON.stringify(alive.slice(-80)), PRES_TTL_S);
         const online = [];
-        storage.keys().filter((k) => k.indexOf('pres_') === 0).forEach((k) => {
+        alive.forEach((k) => {
+          if (k === pid) return;
           let v = null;
-          try { v = JSON.parse(storage.get(k)); } catch (e) { /* rotto */ }
-          if (!v || now - v.t > PRESENCE_TTL_MS) { storage.del(k); return; }
-          const other = k.slice(5);
-          if (other !== pid && now - v.t <= ONLINE_MS) online.push({ pid: other, name: v.name, lead: v.lead, lv: v.lv, zone: v.zone });
+          try { v = JSON.parse(vals['pres_' + k]); } catch (e) { v = null; }
+          if (v && now - v.t <= ONLINE_MS) online.push({ pid: k, name: v.name, lead: v.lead, shiny: !!v.shiny, lv: v.lv, zone: v.zone, x: v.x, y: v.y });
         });
         online.sort((a, b) => a.name.localeCompare(b.name));
         return { ok: true, online: online.slice(0, 30), invites: readInvites(pid) };
@@ -215,20 +278,127 @@
         const from = cleanPid(p.pid), to = cleanPid(p.to), name = cleanName(p.name);
         if (!from || !to || !name || from === to) return { ok: false, error: 'Invito non valido.' };
         const code = String(p.code || '').toUpperCase().trim();
-        const room = load(code);
-        if (!room || room.status !== 'waiting' || room.players[0].name !== name) return { ok: false, error: 'Crea prima una sfida.' };
-        if (!storage.get('pres_' + to)) return { ok: false, error: 'Il tuo amico non è più online.' };
-        const list = readInvites(to).filter((i) => i.fromPid !== from);
-        list.push({ from: name, fromPid: from, code, t: storage.now() });
-        storage.set('inv_' + to, JSON.stringify(list.slice(-5)));
+        const kind = p.kind === 'raid' ? 'raid' : 'sfida';
+        if (kind === 'raid') {
+          const rd = loadRaid(code);
+          if (!rd || rd.status !== 'lobby' || !rd.players.some((x) => x.pid === from)) return { ok: false, error: 'Crea prima un Raid.' };
+        } else {
+          const room = load(code);
+          if (!room || room.status !== 'waiting' || room.players[0].name !== name) return { ok: false, error: 'Crea prima una sfida.' };
+        }
+        if (!presenceOf(to)) return { ok: false, error: 'Il tuo amico non è più online.' };
+        const list = readInvites(to).filter((i) => !(i.fromPid === from && i.kind === kind));
+        list.push({ from: name, fromPid: from, code, kind, t: storage.now() });
+        C.put('inv_' + to, JSON.stringify(list.slice(-5)), Math.round(INVITE_TTL_MS / 1000));
         return { ok: true };
       },
 
       decline(p) {
         const pid = cleanPid(p.pid), code = String(p.code || '').toUpperCase().trim();
         if (!pid) return { ok: false, error: 'Giocatore non valido.' };
-        storage.set('inv_' + pid, JSON.stringify(readInvites(pid).filter((i) => i.code !== code)));
+        C.put('inv_' + pid, JSON.stringify(readInvites(pid).filter((i) => i.code !== code)), Math.round(INVITE_TTL_MS / 1000));
         return { ok: true };
+      },
+
+      raidCreate(p) {
+        const pid = cleanPid(p.pid), name = cleanName(p.name);
+        if (!pid || !name) return { ok: false, error: 'Giocatore non valido.' };
+        const t = parseTeam(p.team);
+        if (t.error) return { ok: false, error: t.error };
+        const day = new Date(storage.now()).toISOString().slice(0, 10);
+        const r = {
+          code: newRaidCode(), host: pid, status: 'lobby', created: storage.now(), started: 0, seed: Math.floor(storage.random() * 4294967295) >>> 0,
+          boss: { species: RAID_BOSSES[E.hashString('raid' + day) % RAID_BOSSES.length], level: 0, hp: 0, maxhp: 0 },
+          players: [{ pid, name, team: t.team, dealt: 0, lane: null, done: false, last: 0 }], log: [],
+        };
+        saveRaid(r);
+        return raidView(r, pid);
+      },
+
+      raidJoin(p) {
+        const pid = cleanPid(p.pid), name = cleanName(p.name);
+        if (!pid || !name) return { ok: false, error: 'Giocatore non valido.' };
+        const r = loadRaid(String(p.code || '').toUpperCase().trim());
+        if (!r) return { ok: false, error: 'Raid non trovato. Controlla il codice.' };
+        if (r.players.some((x) => x.pid === pid)) return raidView(r, pid);
+        if (r.status !== 'lobby') return { ok: false, error: 'Il Raid è già cominciato.' };
+        if (r.players.length >= RAID_MAX) return { ok: false, error: 'Il Raid è pieno (5 giocatori).' };
+        if (r.players.some((x) => x.name === name)) return { ok: false, error: 'C\'è già un giocatore con questo nome.' };
+        const t = parseTeam(p.team);
+        if (t.error) return { ok: false, error: t.error };
+        r.players.push({ pid, name, team: t.team, dealt: 0, lane: null, done: false, last: 0 });
+        saveRaid(r);
+        return raidView(r, pid);
+      },
+
+      raidStart(p) {
+        const pid = cleanPid(p.pid);
+        const r = loadRaid(String(p.code || '').toUpperCase().trim());
+        if (!r) return { ok: false, error: 'Raid non trovato.' };
+        if (r.host !== pid) return { ok: false, error: 'Solo chi ha creato il Raid può farlo partire.' };
+        if (r.status !== 'lobby') return raidView(r, pid);
+        const n = r.players.length;
+        const avg = r.players.reduce((a, x) => a + Math.max.apply(null, x.team.map((m) => m.level)), 0) / n;
+        // come nei Raid veri: tanta vita in comune, colpi meno devastanti, livello poco sopra la squadra
+        const level = Math.max(12, Math.min(70, Math.round(avg) + RAID_LV_UP));
+        const boss = E.createMonster(r.boss.species, level, 'boss', { shiny: false, talents: [12, 12, 12, 12] });
+        // forza dei colpi che cresce col livello: duro ma battibile a 15, impegnativo a 30+
+        boss.atk = Math.max(5, Math.round(boss.atk * Math.max(0.45, Math.min(1, RAID_ATK + (level - 17) * 0.04))));
+        const maxhp = Math.round(boss.maxhp * (RAID_HP_BASE + RAID_HP_PER * n));
+        r.boss.level = level; r.boss.maxhp = maxhp; r.boss.hp = maxhp;
+        r.players.forEach((x, i) => {
+          const b = E.clone(boss); b.maxhp = maxhp; b.hp = maxhp; b.name = boss.name + ' Gigante';
+          x.lane = E.createBattle((r.seed + i * 7919) >>> 0, [{ name: x.name, team: x.team }, { name: 'Boss', team: [b] }]);
+          x.team = x.team.map((m) => ({ species: m.species, level: m.level })); // la squadra vive nella lotta
+        });
+        r.status = 'fight';
+        r.started = storage.now();
+        saveRaid(r);
+        return raidView(r, pid);
+      },
+
+      raidMove(p) {
+        const pid = cleanPid(p.pid);
+        const r = loadRaid(String(p.code || '').toUpperCase().trim());
+        if (!r) return { ok: false, error: 'Raid non trovato.' };
+        const me = r.players.find((x) => x.pid === pid);
+        if (!me) return { ok: false, error: 'Non sei in questo Raid.' };
+        const now = storage.now();
+        if (r.status === 'fight' && now - r.started > RAID_TIME_MS) { r.status = 'lost'; saveRaid(r); }
+        if (r.status !== 'fight' || me.done) return raidView(r, pid);
+        if (Number(p.turn) !== me.lane.turn + 1) return raidView(r, pid);
+        if (now - me.last < RAID_MOVE_MS) return raidView(r, pid, { wait: true });
+        let action;
+        try { action = typeof p.act === 'string' ? JSON.parse(p.act) : p.act; } catch (e) { return { ok: false, error: 'Mossa non leggibile.' }; }
+        const side = me.lane.sides[0], mon = side.team[side.active];
+        if (!action || (action.kind !== 'move' && action.kind !== 'switch')) return { ok: false, error: 'Mossa non valida.' };
+        if (action.kind === 'move' && !mon.moves.includes(action.move)) return { ok: false, error: 'Mossa non disponibile.' };
+        if (action.kind === 'switch' && !(side.team[action.to] && side.team[action.to].hp > 0)) return { ok: false, error: 'Cambio non valido.' };
+        const bossMon = me.lane.sides[1].team[0];
+        bossMon.hp = r.boss.hp;                       // la vita del boss è in comune
+        const before = r.boss.hp;
+        const events = E.resolveTurn(me.lane, [action, E.aiChoose(me.lane, 1, (r.seed + now) >>> 0, 'normale')]);
+        me.lane.log = [];
+        const dealt = Math.max(0, before - Math.max(0, bossMon.hp));
+        r.boss.hp = Math.max(0, before - dealt);
+        me.dealt += dealt;
+        me.last = now;
+        if (dealt > 0) r.log = r.log.concat([{ n: me.name, d: dealt }]).slice(-8);
+        if (r.boss.hp <= 0) r.status = 'won';
+        else if (me.lane.winner === 1 || me.lane.sides[0].team.every((m) => m.hp <= 0)) {
+          me.done = true;
+          if (r.players.every((x) => x.done)) r.status = 'lost';
+        }
+        saveRaid(r);
+        return raidView(r, pid, { lastEvents: events, dealt });
+      },
+
+      raidState(p) {
+        const pid = cleanPid(p.pid);
+        const r = loadRaid(String(p.code || '').toUpperCase().trim());
+        if (!r) return { ok: false, error: 'Raid non trovato.' };
+        if (r.status === 'fight' && storage.now() - r.started > RAID_TIME_MS) { r.status = 'lost'; saveRaid(r); }
+        return raidView(r, pid);
       },
 
       /** Modalità Orda: invio del punteggio con controlli di plausibilità. */

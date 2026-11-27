@@ -187,8 +187,8 @@
     const letters = (t, cls) => t.split('').map((c, i) => `<span class="${cls}" style="--i:${i}">${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('');
     app.innerHTML = `<div class="screen title${splash ? ' splash' : ''}" id="titleScreen">
       <div class="stars"></div>
-      <h1 class="sr">FMLAB Monsters</h1>
-      <div class="logo" aria-hidden="true"><div class="big">${letters('FMLAB', 'l1')}</div><div class="big2">${letters('MONSTERS', 'l2')}</div><div class="sub">Cattura, allena, sfida i tuoi amici</div></div>
+      <h1 class="sr">FMLAB Cristalia</h1>
+      <div class="logo" aria-hidden="true"><div class="big">${letters('FMLAB', 'l1')}</div><div class="big2">${letters('CRISTALIA', 'l2')}</div><div class="sub">Riaccendi i Cristalli · cattura, allena, sfida i tuoi amici</div></div>
       ${use3D ? '<div class="hero3d" id="hero3d"></div>' : `<div class="hero">${Art.monsterSVG('fiammino', { size: 112 })}${Art.monsterSVG('goccino', { size: 112 })}${Art.monsterSVG('semino', { size: 112 })}</div>`}
       ${splash ? '<button class="tapStart" id="tapStart">Tocca per iniziare</button>' : ''}
       <div class="titleMenu" id="titleMenu">
@@ -1357,7 +1357,7 @@
       <div class="card waiting"><div class="spinner"></div><div>In attesa che il tuo amico entri…</div></div>
       <button class="btn sec" id="cancel">Annulla</button>
     </div>`;
-    if (navigator.share) document.getElementById('share').onclick = () => navigator.share({ text: `Sfidami su FMLAB Monsters! Codice: ${r.code}` }).catch(() => {});
+    if (navigator.share) document.getElementById('share').onclick = () => navigator.share({ text: `Sfidami su FMLAB Cristalia! Codice: ${r.code}` }).catch(() => {});
     document.getElementById('cancel').onclick = showPvp;
     const wait = async () => {
       if (screen !== 'room') return;

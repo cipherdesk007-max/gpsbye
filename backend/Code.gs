@@ -26,6 +26,16 @@ function fmlabStorage_() {
     },
     now: function () { return Date.now(); },
     random: function () { return Math.random(); },
+    // CacheService non consuma la quota giornaliera delle proprietà (50.000 al giorno su Gmail)
+    cache: (function () {
+      const c = CacheService.getScriptCache();
+      return {
+        get: function (k) { return c.get(k); },
+        put: function (k, v, ttl) { c.put(k, v, Math.max(1, Math.min(21600, Math.round(ttl)))); },
+        getAll: function (keys) { return keys.length ? c.getAll(keys) : {}; },
+        remove: function (k) { c.remove(k); },
+      };
+    })(),
   };
 }
 
@@ -33,7 +43,7 @@ function doGet(e) {
   const params = (e && e.parameter) || {};
   if (!params.action) {
     return HtmlService.createHtmlOutputFromFile('Index')
-      .setTitle('FMLAB Monsters')
+      .setTitle('FMLAB Cristalia')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no')
       .addMetaTag('apple-mobile-web-app-capable', 'yes')
       .addMetaTag('mobile-web-app-capable', 'yes')

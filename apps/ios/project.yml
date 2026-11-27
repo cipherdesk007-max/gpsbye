@@ -17,12 +17,12 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: it.fmlab.monsters
-        PRODUCT_NAME: FMLAB Monsters
+        PRODUCT_NAME: FMLABCristalia
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: FMLAB Monsters
+        INFOPLIST_KEY_CFBundleDisplayName: Cristalia
         INFOPLIST_KEY_UIStatusBarHidden: YES
         INFOPLIST_KEY_UIRequiresFullScreen: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES

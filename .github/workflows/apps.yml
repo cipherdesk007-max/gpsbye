@@ -18,10 +18,10 @@ jobs:
           xcodebuild -project FMLABMonsters.xcodeproj -scheme FMLABMonsters -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -30
-          mkdir -p Payload && cp -R "build/Build/Products/Release-iphoneos/FMLAB Monsters.app" Payload/
-          zip -qry FMLAB-Monsters.ipa Payload
+          mkdir -p Payload && cp -R "build/Build/Products/Release-iphoneos/FMLABCristalia.app" Payload/
+          zip -qry FMLAB-Cristalia.ipa Payload
       - uses: actions/upload-artifact@v4
-        with: { name: FMLAB-Monsters-iOS, path: apps/ios/FMLAB-Monsters.ipa }
+        with: { name: FMLAB-Cristalia-iOS, path: apps/ios/FMLAB-Cristalia.ipa }
   apk:
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +33,6 @@ jobs:
       - run: node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
       - run: mkdir -p apps/android/app/src/main/assets && rm -rf apps/android/app/src/main/assets/web && cp -R dist/web apps/android/app/src/main/assets/web
       - run: cd apps/android && gradle assembleRelease --no-daemon
-      - run: cp apps/android/app/build/outputs/apk/release/app-release.apk FMLAB-Monsters.apk
+      - run: cp apps/android/app/build/outputs/apk/release/app-release.apk FMLAB-Cristalia.apk
       - uses: actions/upload-artifact@v4
-        with: { name: FMLAB-Monsters-Android, path: FMLAB-Monsters.apk }
+        with: { name: FMLAB-Cristalia-Android, path: FMLAB-Cristalia.apk }

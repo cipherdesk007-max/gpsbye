@@ -5,15 +5,22 @@ let pass = 0, fail = 0;
 function check(name, ok, detail) { if (ok) pass++; else fail++; console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail ? '  [' + detail + ']' : '')); }
 
 // --- finto ambiente Google Apps Script ---
-const store = new Map();
+const store = new Map(), cacheStore = new Map();
+let propOps = 0, cacheOps = 0;
 let locks = 0, now = Date.UTC(2026, 10, 27, 10, 0, 0);
 const sandbox = {
   console, JSON, Math, Date: Object.assign(function (...a) { return new Date(...a); }, { now: () => now, UTC: Date.UTC }),
   PropertiesService: { getScriptProperties: () => ({
-    getProperty: (k) => (store.has(k) ? store.get(k) : null), setProperty: (k, v) => { if (v.length > 9216) throw new Error('valore troppo grande per PropertiesService: ' + v.length); store.set(k, v); },
+    getProperty: (k) => { propOps++; return store.has(k) ? store.get(k) : null; }, setProperty: (k, v) => { propOps++; if (v.length > 9216) throw new Error('valore troppo grande per PropertiesService: ' + v.length); store.set(k, v); },
     deleteProperty: (k) => store.delete(k), getKeys: () => [...store.keys()], deleteAllProperties: () => store.clear() }) },
   LockService: { getScriptLock: () => ({ waitLock: () => { locks++; }, releaseLock: () => {} }) },
   ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
+  CacheService: { getScriptCache: () => ({
+    get: (k) => { const e = cacheStore.get(k); if (!e) return null; if (e.exp <= now) { cacheStore.delete(k); return null; } cacheOps++; return e.v; },
+    put: (k, v, ttl) => { if (String(v).length > 100 * 1024) throw new Error('valore troppo grande per CacheService'); if (ttl > 21600) throw new Error('scadenza oltre 6 ore'); cacheStore.set(k, { v: String(v), exp: now + ttl * 1000 }); cacheOps++; },
+    getAll: (keys) => { const o = {}; keys.forEach((k) => { const e = cacheStore.get(k); if (e && e.exp > now) o[k] = e.v; }); cacheOps++; return o; },
+    remove: (k) => { cacheStore.delete(k); },
+  }) },
   HtmlService: {
     XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' },
     createHtmlOutputFromFile: (f) => {
@@ -32,7 +39,7 @@ const call = (params) => JSON.parse(sandbox.doGet({ parameter: params }).text);
 
 // il link senza ?action apre il gioco intero
 const page = sandbox.doGet({ parameter: {} });
-check('Il link Google apre il gioco (Index.html)', page.file === 'Index' && page.title === 'FMLAB Monsters' && /FMLAB Monsters/.test(page.html));
+check('Il link Google apre il gioco (Index.html)', page.file === 'Index' && page.title === 'FMLAB Cristalia' && /FMLAB Cristalia/.test(page.html));
 check('La pagina ha il viewport per il telefono', /width=device-width/.test(page.meta.viewport || ''));
 check('Index.html contiene motore 3D, mondo e gioco in un file', /FMLAB3D/.test(page.html) && /FMLABWorld/.test(page.html) && !/<script src=/.test(page.html), Math.round(page.html.length / 1024) + ' KB');
 check('google.script.run: apiRun risponde', sandbox.apiRun({ action: 'ping' }).ok === true);
@@ -171,6 +178,60 @@ check('Orda: classifica ordinata col record migliore', ht.ok && ht.rows[0].name 
 for (let k = 0; k < 70; k++) { now += 21 * 1000; call({ action: 'hordeScore', pid: 'orda' + String(k).padStart(7, '0'), name: 'Gioc' + k, score: 100 + k, wave: 3, species: 'semino' }); }
 check('Orda: si tengono al massimo 50 nomi (sotto 9 KB)', Object.keys(JSON.parse(store.get('horde_lb'))).length === 50 && store.get('horde_lb').length < 9000, store.get('horde_lb').length + ' byte');
 check('Orda: hordeTop restituisce 20 righe', call({ action: 'hordeTop' }).rows.length === 20);
+// Quota di Google: la Sala Online non deve consumare letture/scritture delle proprietà
+{
+  const p0 = propOps;
+  for (let k = 0; k < 20; k++) call({ action: 'hello', pid: 'quota000' + (k % 5), name: 'Q' + (k % 5), lead: 'goccino', lv: 10, zone: 'Prato', x: 15, y: 40 });
+  check('Sala Online: 20 segnali di presenza senza toccare la quota delle proprietà', propOps === p0, (propOps - p0) + ' operazioni');
+  const h = call({ action: 'hello', pid: 'quota0000', name: 'Q0', x: 15, y: 40 });
+  check('Sala Online: si vedono gli altri con la posizione sulla mappa', h.online.length === 4 && h.online.every((o) => o.x === 15 && o.y === 40), JSON.stringify(h.online[0]));
+}
+// lettura dello stato di una sfida durante l'attesa: dalla cache
+{
+  const r = call({ action: 'create', name: 'Polli', team: JSON.stringify(teamA) });
+  const p0 = propOps;
+  for (let k = 0; k < 10; k++) call({ action: 'state', code: r.code, side: 0 });
+  check('Attesa della mossa dell\'amico: 10 letture senza toccare la quota', propOps === p0, (propOps - p0) + ' operazioni');
+}
+// Raid cooperativo
+{
+  const mk = (sp, lv, u) => E.teamSnapshot([E.createMonster(sp, lv, u, { talents: [10, 10, 10, 10], nature: E.NATURES ? Object.keys(E.NATURES)[0] : undefined })]);
+  ['raid0000a', 'raid0000b', 'raid0000c'].forEach((pid, i) => call({ action: 'hello', pid, name: 'Raider' + i }));
+  const r = call({ action: 'raidCreate', pid: 'raid0000a', name: 'Raider0', team: JSON.stringify(mk('vulkarn', 30, 'r0')) });
+  check('Raid creato con codice R…', r.ok && /^R[A-Z2-9]{4}$/.test(r.code) && r.status === 'lobby', r.code);
+  check('Invito al Raid mandato', call({ action: 'invite', pid: 'raid0000a', to: 'raid0000b', name: 'Raider0', code: r.code, kind: 'raid' }).ok);
+  const inv = call({ action: 'hello', pid: 'raid0000b', name: 'Raider1' }).invites;
+  check('L\'amico riceve l\'invito al Raid', inv.length === 1 && inv[0].kind === 'raid' && inv[0].code === r.code, JSON.stringify(inv));
+  check('Entra il secondo', call({ action: 'raidJoin', pid: 'raid0000b', name: 'Raider1', code: r.code, team: JSON.stringify(mk('abissaro', 30, 'r1')) }).players.length === 2);
+  check('Entra il terzo', call({ action: 'raidJoin', pid: 'raid0000c', name: 'Raider2', code: r.code, team: JSON.stringify(mk('silvatron', 30, 'r2')) }).players.length === 3);
+  check('Squadra truccata rifiutata nel Raid', call({ action: 'raidJoin', pid: 'raid0000d', name: 'Furbo', code: r.code, team: JSON.stringify([Object.assign(E.teamSnapshot([E.createMonster('fulmix', 30, 'x')])[0], { atk: 999 })]) }).ok === false);
+  check('Solo chi crea fa partire il Raid', call({ action: 'raidStart', pid: 'raid0000b', code: r.code }).ok === false);
+  let st = call({ action: 'raidStart', pid: 'raid0000a', code: r.code });
+  check('Raid partito: boss con vita in comune', st.status === 'fight' && st.boss.maxhp > 200 && st.boss.hp === st.boss.maxhp, st.boss.species + ' Lv ' + st.boss.level + ' PS ' + st.boss.maxhp);
+  const pids = ['raid0000a', 'raid0000b', 'raid0000c'];
+  let rounds = 0, sawShared = false, maxSize = 0;
+  while (st.status === 'fight' && rounds < 300) {
+    for (const pid of pids) {
+      const v = call({ action: 'raidState', pid, code: r.code });
+      if (v.status !== 'fight' || v.me.done) continue;
+      const lane = { turn: v.me.turn, winner: v.me.winner, sides: v.me.sides };
+      const act = E.aiChoose(lane, 0, rounds * 31 + pid.length, 'esperto');
+      const before = v.boss.hp;
+      now += 1000;
+      const res = call({ action: 'raidMove', pid, code: r.code, turn: v.me.turn + 1, act: JSON.stringify(act) });
+      if (res.dealt > 0 && res.boss.hp === before - res.dealt) sawShared = true;
+      st = res;
+      maxSize = Math.max(maxSize, (cacheStore.get('raid_' + r.code) || { v: '' }).v.length);
+      if (st.status !== 'fight') break;
+    }
+    rounds++;
+  }
+  check('Tutti colpiscono lo stesso boss (vita in comune)', sawShared);
+  check('Il Raid finisce (vittoria o sconfitta)', st.status === 'won' || st.status === 'lost', st.status + ' dopo ' + rounds + ' giri, boss ' + st.boss.hp + '/' + st.boss.maxhp);
+  check('Classifica dei danni nel Raid', st.players.length === 3 && st.players.some((x) => x.dealt > 0), st.players.map((x) => x.name + ':' + x.dealt).join(' '));
+  check('Stanza del Raid sotto i 100 KB della cache Google', maxSize > 0 && maxSize < 100 * 1024, Math.round(maxSize / 1024) + ' KB');
+  check('Mossa troppo veloce ignorata (anti-spam)', (() => { const r2 = call({ action: 'raidCreate', pid: 'raid0000a', name: 'Raider0', team: JSON.stringify(E.teamSnapshot(['abissaro', 'silvatron', 'fulmix'].map((sp, k) => E.createMonster(sp, 45, 'q' + k)))) }); call({ action: 'raidStart', pid: 'raid0000a', code: r2.code }); const v = call({ action: 'raidState', pid: 'raid0000a', code: r2.code }); const a1 = call({ action: 'raidMove', pid: 'raid0000a', code: r2.code, turn: v.me.turn + 1, act: JSON.stringify({ kind: 'move', move: v.me.sides[0].team[0].moves[0] }) }); const a2 = call({ action: 'raidMove', pid: 'raid0000a', code: r2.code, turn: a1.me.turn + 1, act: JSON.stringify({ kind: 'move', move: v.me.sides[0].team[0].moves[0] }) }); global.__dbg = JSON.stringify({ r2: r2.ok, e: r2.error, a1: [a1.ok, a1.error, a1.status, a1.me && a1.me.turn], a2: [a2.ok, a2.error, a2.wait, a2.status] }); return a2.wait === true; })(), global.__dbg);
+}
 check('Motore identico tra server e telefono (stesso file)', fs.readFileSync(path.join(dist, 'engine.gs'), 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'game', 'engine.js'), 'utf8'));
 
 console.log(`\nRISULTATO: ${pass} PASS, ${fail} FAIL`);

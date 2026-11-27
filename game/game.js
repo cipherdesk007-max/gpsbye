@@ -231,7 +231,7 @@
     const lead = save.team[0];
     app.innerHTML = `<div class="screen${use3D ? ' full' : ''}">
       <div class="hud"><div class="grow"><div class="zone" id="zone">${ZONE_NAMES[zoneAt(save.pos.y)]}</div><div class="mut"><span id="clock">${clockText()}</span> · Capsule <b id="caps">${save.capsules}</b> · ${Object.keys(save.caught).length}/15</div></div>
-        <div style="width:130px">${lead ? `<div class="row" style="justify-content:space-between"><b>${esc(lead.name)}${shinyMark(lead)}</b><span class="mut">Lv ${lead.level}</span></div>${hpBar(lead.hp, lead.maxhp)}` : ''}</div>
+        <div style="width:104px;flex:none">${lead ? `<div class="row" style="justify-content:space-between"><b>${esc(lead.name)}${shinyMark(lead)}</b><span class="mut">Lv ${lead.level}</span></div>${hpBar(lead.hp, lead.maxhp)}` : ''}</div>
         <button class="ico" id="mPod" aria-label="FMLAB Pod: amici online">📱<i class="dot" id="podDot"></i></button>
         ${use3D ? `<button class="ico" id="mRot" aria-label="Gira la visuale">⟳</button>${canFullscreen() ? '<button class="ico" id="mFull" aria-label="Schermo intero">⛶</button>' : ''}` : ''}</div>
       <div class="invite" id="invite"></div><div class="centercard" id="centerCard"></div>
@@ -415,7 +415,7 @@
         if (Math.random() > 0.45) continue;
         const [dx, dy] = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(Math.random() * 4)];
         const nx = m.x + dx, ny = m.y + dy;
-        if (nx === P.x && ny === P.y && encountersOn()) { syncLife(); return meetRoamer(m); }
+        if (nx === P.x && ny === P.y) { if (encountersOn() && !dlg.open) { syncLife(); return meetRoamer(m); } continue; }
         if (MAP[ny] && isEncounter(MAP[ny][nx]) && zoneAt(ny) === m.zone && freeTile(nx, ny)) { m.x = nx; m.y = ny; }
       }
     }
@@ -1306,7 +1306,7 @@
     get screen() { return screen; },
     get save() { return save; },
     newGame,
-    startWild: (sp, lv, zone) => startWild(sp, lv, zone || 'prato'),
+    startWild: (sp, lv, zone, opts) => startWild(sp, lv, zone || 'prato', opts),
     showMap, showTeam, showDex, showPvp, showViewer, showLounge, life, world: Wd, serverMode, presence, hello,
     showDiary, story, startTrainer, say, get battle() { return B; }, get dialog() { return dlg; },
     get dialogLine() { return dlg.q ? (dlg.q.name ? dlg.q.name + ': ' : '') + dlg.q.lines[dlg.q.i] : ''; },

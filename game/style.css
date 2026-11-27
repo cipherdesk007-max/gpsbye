@@ -215,3 +215,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; }
 .full .hud .zone { font-size: 15px; }
 .full .hud .mut { font-size: 12px; }
 .full .hud > div[style*="width:130px"] { width: 104px !important; flex: none; }
+
+.full .hud .zone { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
+.full .hud .mut { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.full .hud .grow { min-width: 0; }
+.full .hud .ico { width: 36px; height: 36px; font-size: 18px; }

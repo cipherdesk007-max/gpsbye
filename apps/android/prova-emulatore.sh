@@ -13,7 +13,7 @@ avvio() {
     grep -q "AUTOTEST {" "run$1.log" && break
     sleep 2
   done
-  sleep 2
+  sleep 6
   adb exec-out screencap -p > "foto/android-$1.png"
   adb logcat -d | grep -iE "chromium|webview|AndroidRuntime" | tail -40 > "logcat-$1.txt" || true
   adb shell am force-stop $PKG

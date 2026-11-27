@@ -206,6 +206,7 @@ jobs:
           api-level: 30
           arch: x86_64
           target: google_apis
+          profile: pixel_6          # schermo da telefono vero (1080x2400)
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: bash apps/android/prova-emulatore.sh FMLAB-Cristalia.apk

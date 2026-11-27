@@ -21,4 +21,5 @@ avvio() {
 avvio 1
 sleep 3
 avvio 2
-python3 apps/check-autotest.py run1.log run2.log
+python3 apps/check-autotest.py run1.log run2.log | tee foto/android-risultato.txt
+exit ${PIPESTATUS[0]}

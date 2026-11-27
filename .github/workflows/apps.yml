@@ -12,6 +12,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: write   # per pubblicare IPA e APK nella Release "cristalia-ultima"
+
 concurrency:
   group: app-${{ github.ref }}
   cancel-in-progress: true
@@ -74,7 +77,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: '8.10.2' }
+        with: { gradle-version: '8.10.2', cache-read-only: false }   # cache salvata anche su questo ramo
       - name: File del gioco
         run: |
           node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
@@ -82,7 +85,14 @@ jobs:
           rm -rf apps/android/app/src/main/assets/web && cp -R dist/web apps/android/app/src/main/assets/web
           cp apps/autotest.js apps/android/app/src/main/assets/web/autotest.js   # gira solo con --ez autotest true
       - name: Compila l'APK
-        run: cd apps/android && gradle assembleRelease --no-daemon --stacktrace
+        # Maven Central a volte risponde "429 troppe richieste": si riprova fino a 3 volte
+        run: |
+          cd apps/android
+          for i in 1 2 3; do
+            gradle assembleRelease --no-daemon --stacktrace && exit 0
+            echo "Tentativo $i non riuscito, riprovo tra $((i * 30)) secondi"; sleep $((i * 30))
+          done
+          exit 1
       - name: Controlla l'APK
         run: |
           set -e
@@ -96,9 +106,37 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: FMLAB-Cristalia-Android, path: FMLAB-Cristalia.apk, retention-days: 30 }
 
+  pubblica:
+    name: Pubblica IPA e APK
+    needs: [ipa, apk]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: art, merge-multiple: true }
+      - name: Release "cristalia-ultima" (sempre l'ultima build) e, con un tag v*, anche la release del tag
+        run: |
+          set -e
+          cd art && ls -la
+          sha256sum FMLAB-Cristalia.ipa FMLAB-Cristalia.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          NOTE="Build ${{ github.run_number }} dal commit ${{ github.sha }} (ramo ${{ github.ref_name }}).
+          IPA per LiveContainer/SideStore (non firmata) e APK Android (firma di debug).
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh release delete cristalia-ultima -R "${{ github.repository }}" --cleanup-tag -y || true
+          gh release create cristalia-ultima -R "${{ github.repository }}" --target "${{ github.sha }}" --prerelease \
+            --title "FMLAB Cristalia — ultima build (${{ github.run_number }})" --notes "$NOTE" \
+            FMLAB-Cristalia.ipa FMLAB-Cristalia.apk SHA256SUMS.txt
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            gh release create "${{ github.ref_name }}" -R "${{ github.repository }}" --verify-tag \
+              --title "FMLAB Cristalia ${{ github.ref_name }}" --notes "$NOTE" FMLAB-Cristalia.ipa FMLAB-Cristalia.apk SHA256SUMS.txt || true
+          fi
+
   ios-simulatore:
     name: Prova su iPhone simulato
     if: startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[telefoni]')
+    needs: pubblica
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -136,7 +174,14 @@ jobs:
             xcrun simctl terminate "$UDID" it.fmlab.cristalia || true
             sleep 3
           done
-          python3 apps/check-autotest.py run1.log run2.log
+          python3 apps/check-autotest.py run1.log run2.log | tee foto/iphone-risultato.txt
+          test "${PIPESTATUS[0]}" = 0
+      - name: Foto e risultati nella Release
+        if: always()
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cp run1.log foto/iphone-run1.log 2>/dev/null || true; cp run2.log foto/iphone-run2.log 2>/dev/null || true
+          gh release upload cristalia-ultima foto/* -R "${{ github.repository }}" --clobber || true
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: foto-iphone-simulato, path: foto/, retention-days: 30 }
@@ -144,7 +189,7 @@ jobs:
   android-emulatore:
     name: Prova su Android emulato
     if: startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[telefoni]')
-    needs: apk
+    needs: [apk, pubblica]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -164,6 +209,14 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: bash apps/android/prova-emulatore.sh FMLAB-Cristalia.apk
+      - name: Foto e risultati nella Release
+        if: always()
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          mkdir -p foto
+          cp run1.log foto/android-run1.log 2>/dev/null || true; cp run2.log foto/android-run2.log 2>/dev/null || true
+          cp logcat-1.txt foto/android-logcat-1.txt 2>/dev/null || true; cp logcat-2.txt foto/android-logcat-2.txt 2>/dev/null || true
+          gh release upload cristalia-ultima foto/* -R "${{ github.repository }}" --clobber || true
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: foto-android-emulato, path: "foto/\nrun*.log\nlogcat-*.txt", retention-days: 30 }

@@ -3,6 +3,8 @@
 # L'URL del server Google si imposta una volta sola:
 #   gh variable set FMLAB_SERVER_URL -R cipherdesk007-max/gpsbye --body "https://script.google.com/macros/s/…/exec"
 # Se è vuoto le app funzionano lo stesso (modalità locale + campo URL nel gioco, Sfide › Server).
+# Prova sui telefoni simulati (iPhone nel Simulatore, Android nell'emulatore): parte con i tag v* oppure
+# quando il messaggio del commit contiene [telefoni] (è lenta, non la si fa a ogni modifica).
 name: App
 on:
   push:
@@ -27,6 +29,7 @@ jobs:
         run: |
           node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
           rm -rf apps/ios/FMLABMonsters/web && cp -R dist/web apps/ios/FMLABMonsters/web
+          cp apps/autotest.js apps/ios/FMLABMonsters/web/autotest.js   # gira solo con l'argomento -autotest
           ls apps/ios/FMLABMonsters/web
       - name: Progetto Xcode (XcodeGen)
         run: |
@@ -77,6 +80,7 @@ jobs:
           node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
           mkdir -p apps/android/app/src/main/assets
           rm -rf apps/android/app/src/main/assets/web && cp -R dist/web apps/android/app/src/main/assets/web
+          cp apps/autotest.js apps/android/app/src/main/assets/web/autotest.js   # gira solo con --ez autotest true
       - name: Compila l'APK
         run: cd apps/android && gradle assembleRelease --no-daemon --stacktrace
       - name: Controlla l'APK
@@ -91,3 +95,75 @@ jobs:
           sha256sum FMLAB-Cristalia.apk
       - uses: actions/upload-artifact@v4
         with: { name: FMLAB-Cristalia-Android, path: FMLAB-Cristalia.apk, retention-days: 30 }
+
+  ios-simulatore:
+    name: Prova su iPhone simulato
+    if: startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[telefoni]')
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: File del gioco
+        run: |
+          node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
+          rm -rf apps/ios/FMLABMonsters/web && cp -R dist/web apps/ios/FMLABMonsters/web
+          cp apps/autotest.js apps/ios/FMLABMonsters/web/autotest.js
+      - name: Compila per il Simulatore
+        run: |
+          set -o pipefail
+          brew install xcodegen
+          cd apps/ios && xcodegen generate
+          xcodebuild -project FMLABMonsters.xcodeproj -scheme FMLABMonsters -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build | tee build.log | grep -E "error:|\*\* BUILD" || true
+          grep -q "BUILD SUCCEEDED" build.log
+      - name: Due avvii nel Simulatore
+        run: |
+          set -u
+          APP=apps/ios/build/Build/Products/Release-iphonesimulator/FMLABCristalia.app
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[(k,x) for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]; c.sort(key=lambda t: t[0]); print(c[-1][1]['udid'])")
+          echo "Simulatore: $UDID"; xcrun simctl list devices | grep "$UDID"
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p foto
+          for n in 1 2; do
+            xcrun simctl launch --console-pty --terminate-running-process "$UDID" it.fmlab.cristalia -autotest > run$n.log 2>&1 &
+            for i in $(seq 1 60); do grep -q "AUTOTEST {" run$n.log && break; sleep 2; done
+            sleep 2
+            xcrun simctl io "$UDID" screenshot foto/iphone-$n.png
+            xcrun simctl terminate "$UDID" it.fmlab.cristalia || true
+            sleep 3
+          done
+          python3 apps/check-autotest.py run1.log run2.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: foto-iphone-simulato, path: foto/, retention-days: 30 }
+
+  android-emulatore:
+    name: Prova su Android emulato
+    if: startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[telefoni]')
+    needs: apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: FMLAB-Cristalia-Android }
+      - name: Accelerazione (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash apps/android/prova-emulatore.sh FMLAB-Cristalia.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: foto-android-emulato, path: "foto/\nrun*.log\nlogcat-*.txt", retention-days: 30 }

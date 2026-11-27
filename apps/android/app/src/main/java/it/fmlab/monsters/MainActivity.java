@@ -17,6 +17,9 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.util.Log;
+import android.webkit.ConsoleMessage;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -24,6 +27,12 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import androidx.webkit.WebViewAssetLoader;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
+
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 
 public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
@@ -51,7 +60,38 @@ public class MainActivity extends Activity {
         s.setTextZoom(100);                      // il gioco non si ingrandisce col testo grande di sistema
         web.setBackgroundColor(0xFF0F1422);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        // prova automatica (solo CI): am start … --ez autotest true
+        final boolean autotest = getIntent() != null && getIntent().getBooleanExtra("autotest", false);
+        if (autotest) {
+            WebView.setWebContentsDebuggingEnabled(true);
+            web.setWebChromeClient(new WebChromeClient() {
+                @Override
+                public boolean onConsoleMessage(ConsoleMessage m) {
+                    String t = m.message();
+                    if (t != null && t.startsWith("AUTOTEST ")) Log.i("CristaliaTest", t);
+                    else if (m.messageLevel() == ConsoleMessage.MessageLevel.ERROR) Log.w("CristaliaTest", "ERRORE " + t + " @" + m.sourceId() + ":" + m.lineNumber());
+                    return true;
+                }
+            });
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                WebViewCompat.addDocumentStartJavaScript(web,
+                        "window.__autotestErrors=[];addEventListener('error',function(e){__autotestErrors.push(String(e.message))});addEventListener('unhandledrejection',function(e){__autotestErrors.push('promise: '+String(e.reason))});",
+                        Collections.singleton("https://" + HOST));
+            }
+        }
         web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                if (!autotest) return;
+                try (InputStream in = getAssets().open("web/autotest.js")) {
+                    java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+                    byte[] b = new byte[8192];
+                    int n;
+                    while ((n = in.read(b)) > 0) buf.write(b, 0, n);
+                    view.evaluateJavascript(new String(buf.toByteArray(), StandardCharsets.UTF_8), null);
+                } catch (Exception e) { Log.w("CristaliaTest", "ERRORE autotest.js: " + e); }
+            }
+
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
                 return loader.shouldInterceptRequest(req.getUrl());

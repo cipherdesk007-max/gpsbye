@@ -85,6 +85,32 @@ Ogni volta che cambi il gioco: rifai il punto 1, reincolla i file e **Gestisci d
 
 Stanze, presenze e inviti vivono nelle proprietà dello script (niente fogli Google) e si cancellano da soli (stanze dopo 24 ore, presenze dopo 10 minuti, inviti dopo 10 minuti). La funzione `azzeraTutto` nell'editor azzera tutto.
 
+## Installare sul telefono (IPA e APK)
+
+Le app si costruiscono da sole su GitHub Actions a ogni push sul ramo `fmlab-monsters` della repo `cipherdesk007-max/gpsbye` (workflow **App**). Gli artefatti `FMLAB-Cristalia-iOS` (IPA) e `FMLAB-Cristalia-Android` (APK) restano scaricabili per 30 giorni dalla pagina della run.
+
+Il gioco è dentro l'app: la storia, la mappa e l'Orda funzionano anche senza internet. Sfide, Sala Online, Raid e classifiche usano il server Google.
+
+**iPhone con LiveContainer**
+1. Scarica `FMLAB-Cristalia-iOS`, estrai `FMLAB-Cristalia.ipa` e mettilo nell'app File.
+2. Apri LiveContainer › **+** › scegli l'IPA. LiveContainer la firma da solo (l'IPA arriva non firmata, è normale).
+3. Apri **Cristalia**. Al primo tocco parte la musica (con l'interruttore silenzioso attivo il gioco resta muto, come i giochi veri).
+4. Con SideStore: SideStore › **+** › scegli l'IPA.
+
+**Android**
+1. Scarica `FMLAB-Cristalia-Android`, estrai `FMLAB-Cristalia.apk`.
+2. Aprilo dal telefono: la prima volta Android chiede di consentire l'installazione «da questa fonte» (il browser o File): consenti e installa.
+3. Gli aggiornamenti si installano sopra (il numero di versione cresce a ogni build) e i salvataggi restano.
+
+**Collegare le app al server Google**
+- Una volta sola, con l'URL `/exec` del tuo Apps Script: `gh variable set FMLAB_SERVER_URL -R cipherdesk007-max/gpsbye --body "https://script.google.com/macros/s/…/exec"` (oppure GitHub › Settings › Secrets and variables › Actions › Variables).
+- Poi rifai le app: un push qualsiasi sul ramo, oppure `git tag v1.1 && git push gh v1.1`.
+- Senza variabile le app funzionano lo stesso: l'URL si può incollare nel gioco (Sfide › Server › Salva e prova).
+
+**Come sono fatte**
+- iOS (`apps/ios`, XcodeGen): WKWebView che carica il gioco da `cristalia://localhost/` con un `WKURLSchemeHandler` (come le app Capacitor). Rispetto a `file://` l'origine è stabile, quindi i salvataggi in localStorage restano, e le chiamate al server Google sono normali richieste tra origini (Google risponde con `Access-Control-Allow-Origin: *`). Audio in modalità «ambient», schermo intero, niente rimbalzo, tutte le rotazioni tranne il capovolto.
+- Android (`apps/android`, Gradle): WebView che carica il gioco da `https://appassets.androidplatform.net/assets/web/` con `WebViewAssetLoader` (androidx.webkit): origine https sicura, niente accesso ai file del telefono, solo il permesso Internet, schermo intero immersivo, schermo sempre acceso durante il gioco, tasto indietro che manda l'app in secondo piano senza chiuderla.
+
 ## Anti-imbroglio
 
 Il server controlla anche talenti (interi 0–15), carattere e rarità: statistiche che non tornano con talenti e carattere vengono rifiutate.

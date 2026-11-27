@@ -81,9 +81,21 @@ final class AssetSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 }
 
+/// Prova automatica (solo CI): l'app parte con l'argomento -autotest, esegue web/autotest.js
+/// e stampa il risultato sulla console ("AUTOTEST {…}").
+final class AutotestReporter: NSObject, WKScriptMessageHandler {
+    func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
+        let line = "AUTOTEST \(message.body)"
+        print(line); fflush(stdout)
+        NSLog("%@", line)
+    }
+}
+
 final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
     private var webView: WKWebView!
     private var handler: AssetSchemeHandler?
+    private let autotest = ProcessInfo.processInfo.arguments.contains("-autotest")
+    private let reporter = AutotestReporter()
 
     override var prefersStatusBarHidden: Bool { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
@@ -99,6 +111,13 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDele
             let h = AssetSchemeHandler(root: web)
             config.setURLSchemeHandler(h, forURLScheme: AssetSchemeHandler.scheme)
             handler = h
+        }
+        if autotest, let url = Bundle.main.url(forResource: "autotest", withExtension: "js", subdirectory: "web"),
+           let code = try? String(contentsOf: url, encoding: .utf8) {
+            let errs = "window.__autotestErrors=[];addEventListener('error',function(e){__autotestErrors.push(String(e.message))});addEventListener('unhandledrejection',function(e){__autotestErrors.push('promise: '+String(e.reason))});"
+            config.userContentController.addUserScript(WKUserScript(source: errs, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            config.userContentController.addUserScript(WKUserScript(source: code, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+            config.userContentController.add(reporter, name: "autotest")
         }
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self

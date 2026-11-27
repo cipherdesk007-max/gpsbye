@@ -1,0 +1,26 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'it.fmlab.monsters'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'it.fmlab.monsters'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            // APK di prova firmato con la chiave di debug (per installarlo a mano)
+            signingConfig signingConfigs.debug
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    // il gioco (dist/web) viene copiato qui dalla CI prima della build
+    sourceSets { main { assets.srcDirs = ['src/main/assets'] } }
+}

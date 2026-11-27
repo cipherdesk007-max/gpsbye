@@ -1,3 +1,11 @@
 dist/
 node_modules/
 *.zip
+apps/ios/FMLABMonsters/web/
+apps/ios/build/
+apps/ios/*.xcodeproj/
+apps/ios/Payload/
+apps/android/app/src/main/assets/
+apps/android/.gradle/
+apps/android/app/build/
+foto/

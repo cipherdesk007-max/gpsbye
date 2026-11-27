@@ -1,0 +1,36 @@
+# Test veloci a ogni modifica (pochi secondi). La prova completa nel browser, più lenta,
+# gira solo una volta a settimana o a mano (Actions › CI › Run workflow).
+name: CI
+on:
+  push:
+  pull_request:
+  schedule: [{ cron: '17 4 * * 1' }]
+  workflow_dispatch:
+jobs:
+  veloci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node --check game/engine.js && node --check game/gl3d.js && node --check game/game.js
+      - run: node tests/test-engine.js
+      - run: node scripts/build-web.js && node tests/test-server.js
+  browser:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install playwright pillow && python -m playwright install --with-deps chromium
+      - run: node scripts/build-web.js
+      - run: |
+          python -m http.server 8765 &
+          sleep 1
+          FMLAB_OUT=foto/ python tests/e2e.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: foto-dei-test, path: foto/ }

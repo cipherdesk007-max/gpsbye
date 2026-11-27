@@ -25,10 +25,13 @@
       out.serverUrl = window.FMLAB_SERVER_URL || '';
       const r = await fetch('engine.js');
       out.fetchLocal = r.ok;
-      try {
-        const g = await fetch('https://api.github.com/zen', { cache: 'no-store' });
-        out.fetchRemote = g.ok;
-      } catch (e) { out.fetchRemote = 'errore: ' + e.message; }
+      // richiesta verso un altro sito (come farà col server Google): conta che la risposta si possa
+      // leggere (CORS permesso), anche se il sito risponde "troppe richieste"
+      out.remote = {};
+      for (const u of ['https://api.github.com/zen', 'https://httpbin.org/get']) {
+        try { const g = await fetch(u, { cache: 'no-store' }); out.remote[u] = g.status; } catch (e) { out.remote[u] = 'bloccata: ' + e.message; }
+      }
+      out.fetchRemote = Object.values(out.remote).some((v) => typeof v === 'number' && v > 0);
       if (out.serverUrl) {
         try {
           const p = await fetch(out.serverUrl + (out.serverUrl.indexOf('?') >= 0 ? '&' : '?') + 'action=ping');

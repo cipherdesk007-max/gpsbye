@@ -1,38 +1,93 @@
-# App IPA (iPhone, da firmare con SideStore) e APK (Android). A mano da Actions › App › Run workflow,
-# oppure creando un tag v1.0, v1.1… L'URL del server Google va in Settings › Variables › FMLAB_SERVER_URL.
+# App IPA (iPhone: LiveContainer / SideStore, non firmata) e APK (Android, firmato con la chiave di debug).
+# Partono a ogni push sul ramo fmlab-monsters, con i tag v* e a mano.
+# L'URL del server Google si imposta una volta sola:
+#   gh variable set FMLAB_SERVER_URL -R cipherdesk007-max/gpsbye --body "https://script.google.com/macros/s/…/exec"
+# Se è vuoto le app funzionano lo stesso (modalità locale + campo URL nel gioco, Sfide › Server).
 name: App
 on:
-  workflow_dispatch:
   push:
+    branches: [fmlab-monsters]
     tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ipa:
+    name: IPA iPhone
     runs-on: macos-15
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - run: node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
-      - run: rm -rf apps/ios/FMLABMonsters/web && cp -R dist/web apps/ios/FMLABMonsters/web
-      - run: brew install xcodegen && cd apps/ios && xcodegen generate
-      - run: |
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: File del gioco
+        run: |
+          node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
+          rm -rf apps/ios/FMLABMonsters/web && cp -R dist/web apps/ios/FMLABMonsters/web
+          ls apps/ios/FMLABMonsters/web
+      - name: Progetto Xcode (XcodeGen)
+        run: |
+          brew install xcodegen
+          cd apps/ios && xcodegen generate
+          xcodebuild -version
+      - name: Compila (iPhoneOS, senza firma)
+        run: |
+          set -o pipefail
           cd apps/ios
           xcodebuild -project FMLABMonsters.xcodeproj -scheme FMLABMonsters -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -30
-          mkdir -p Payload && cp -R "build/Build/Products/Release-iphoneos/FMLABCristalia.app" Payload/
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} build | tee build.log | grep -E "error:|\*\* BUILD" || true
+          grep -q "BUILD SUCCEEDED" build.log
+      - name: Errori di compilazione (se fallisce)
+        if: failure()
+        run: grep -n -B3 -A8 "error:" apps/ios/build.log | head -200 || true
+      - name: Impacchetta e controlla l'IPA
+        run: |
+          set -e
+          cd apps/ios
+          APP="build/Build/Products/Release-iphoneos/FMLABCristalia.app"
+          test -d "$APP"
+          plutil -p "$APP/Info.plist" | grep -E "CFBundleDisplayName|CFBundleIdentifier|CFBundleShortVersionString|CFBundleVersion|UISupportedInterfaceOrientations|UIStatusBarHidden|MinimumOSVersion"
+          for f in index.html config.js engine.js world.js story.js server-core.js art.js gl3d.js models.js audio.js horde.js game.js style.css; do test -f "$APP/web/$f" || { echo "manca web/$f"; exit 1; }; done
+          rm -rf Payload && mkdir -p Payload && cp -R "$APP" Payload/
           zip -qry FMLAB-Cristalia.ipa Payload
+          unzip -l FMLAB-Cristalia.ipa | grep -E "web/index.html|FMLABCristalia$"
+          shasum -a 256 FMLAB-Cristalia.ipa
       - uses: actions/upload-artifact@v4
-        with: { name: FMLAB-Cristalia-iOS, path: apps/ios/FMLAB-Cristalia.ipa }
+        with: { name: FMLAB-Cristalia-iOS, path: apps/ios/FMLAB-Cristalia.ipa, retention-days: 30 }
+
   apk:
+    name: APK Android
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.10.2' }
-      - run: node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
-      - run: mkdir -p apps/android/app/src/main/assets && rm -rf apps/android/app/src/main/assets/web && cp -R dist/web apps/android/app/src/main/assets/web
-      - run: cd apps/android && gradle assembleRelease --no-daemon
-      - run: cp apps/android/app/build/outputs/apk/release/app-release.apk FMLAB-Cristalia.apk
+      - name: File del gioco
+        run: |
+          node scripts/build-web.js "${{ vars.FMLAB_SERVER_URL }}"
+          mkdir -p apps/android/app/src/main/assets
+          rm -rf apps/android/app/src/main/assets/web && cp -R dist/web apps/android/app/src/main/assets/web
+      - name: Compila l'APK
+        run: cd apps/android && gradle assembleRelease --no-daemon --stacktrace
+      - name: Controlla l'APK
+        run: |
+          set -e
+          APK=apps/android/app/build/outputs/apk/release/app-release.apk
+          for f in index.html config.js engine.js gl3d.js models.js game.js; do unzip -l "$APK" | grep -q "assets/web/$f" || { echo "manca assets/web/$f"; exit 1; }; done
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          "$BT/aapt" dump badging "$APK" | grep -E "package:|application-label|sdkVersion|targetSdkVersion|uses-permission"
+          "$BT/apksigner" verify --print-certs "$APK" | head -3
+          cp "$APK" FMLAB-Cristalia.apk
+          sha256sum FMLAB-Cristalia.apk
       - uses: actions/upload-artifact@v4
-        with: { name: FMLAB-Cristalia-Android, path: FMLAB-Cristalia.apk }
+        with: { name: FMLAB-Cristalia-Android, path: FMLAB-Cristalia.apk, retention-days: 30 }

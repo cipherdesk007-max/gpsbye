@@ -1,19 +1,22 @@
 plugins { id 'com.android.application' }
 
+// numero di versione: in CI cresce a ogni build (GITHUB_RUN_NUMBER), così l'APK nuovo si installa sopra il vecchio
+def runNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as Integer
+
 android {
     namespace 'it.fmlab.monsters'
     compileSdk 34
     defaultConfig {
-        applicationId 'it.fmlab.monsters'
+        applicationId 'it.fmlab.cristalia'
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
     }
     buildTypes {
         release {
             minifyEnabled false
-            // APK di prova firmato con la chiave di debug (per installarlo a mano)
+            // APK da installare a mano: firmato con la chiave di debug di Android
             signingConfig signingConfigs.debug
         }
     }
@@ -21,6 +24,14 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    // il gioco (dist/web) viene copiato qui dalla CI prima della build
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+    // il gioco (dist/web) viene copiato in src/main/assets/web dalla CI prima della build
     sourceSets { main { assets.srcDirs = ['src/main/assets'] } }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
 }

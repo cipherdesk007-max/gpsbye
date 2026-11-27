@@ -511,7 +511,19 @@ void main() {
     }
   }
   /** Modello della creatura; la cache tiene separati normale e shiny ('mon:id' / 'mon:id*'). */
-  const creatureMesh = (key, shiny) => { const P = parseMon(key, shiny); return mesh('mon:' + P.id + (P.shiny ? '*' : ''), () => buildCreature(P.id, P.shiny)); };
+  // ---------- ganci per i modelli (game/models.js li riempie) ----------
+  // HOOKS.creature(id, shiny) → Builder   : modello di una creatura in un solo pezzo
+  // HOOKS.drawCreature(R, id, shiny, model, drawOpts, anim) → true se l'ha disegnata (creature a pezzi animati)
+  //   anim = { t, action: 'idle'|'walk'|'attack'|'hit'|'faint'|'sleep', phase, where: 'battle'|'map'|'showcase' }
+  // HOOKS.trainer(R, look, pos, yaw, walk, moving, scale, t) → true se l'ha disegnato (personaggi)
+  const HOOKS = { creature: null, drawCreature: null, trainer: null };
+  function drawMon(R, id, shiny, model, drawOpts, anim) {
+    if (HOOKS.drawCreature) {
+      try { if (HOOKS.drawCreature(R, parseMon(id, shiny).id, parseMon(id, shiny).shiny, model, drawOpts || {}, anim || { t: 0, action: 'idle', phase: 0, where: 'map' })) return; } catch (e) { HOOKS.error = String(e && e.stack || e); }
+    }
+    R.draw(creatureMesh(id, shiny), model, drawOpts || {});
+  }
+  const creatureMesh = (key, shiny) => { const P = parseMon(key, shiny); return mesh('mon:' + P.id + (P.shiny ? '*' : ''), () => (HOOKS.creature && HOOKS.creature(P.id, P.shiny)) || buildCreature(P.id, P.shiny)); };
   /** Ombra morbida a contatto: due dischi, quello esterno più largo e più chiaro. */
   function softShadow(R, x, y, z, rx, rz, alpha, tint) {
     const sm = shadowMesh(), o = { blend: true, noDepth: true, tint };
@@ -965,7 +977,8 @@ void main() {
         let flash = M.flash, flashCol = WHITE;
         const sp = (t - a.statusT) / 0.9;
         if (a.status && sp >= 0 && sp < 1) { const f = (1 - sp) * (0.6 + 0.3 * Math.cos(sp * 22)); if (f > flash) { flash = f; flashCol = mix(STATUS_COL[a.status], WHITE, 0.15); } }
-        R.draw(creatureMesh(a.id, a.shiny), M.m, { alpha: M.alpha, flash, flashCol });
+        const act = a.faintT ? 'faint' : (t - a.hitT) < 0.55 ? 'hit' : (t - a.lungeT) < 0.5 ? 'attack' : a.status === 'slp' ? 'sleep' : 'idle';
+        drawMon(R, a.id, a.shiny, M.m, { alpha: M.alpha, flash, flashCol }, { t, action: act, phase: a.phase, where: 'battle', since: act === 'hit' ? t - a.hitT : act === 'attack' ? t - a.lungeT : act === 'faint' ? t - a.faintT : 0 });
         actorFx(R, a, M, t, dt, eye);
       });
       // capsula
@@ -1054,7 +1067,7 @@ void main() {
         const hop = opts.hop && i === opts.hop - 1 ? Math.abs(Math.sin(t * 5)) * 0.12 : 0;
         const s = L.scale * (opts.size || 1);
         softShadow(R, x, 0.045, 0, 0.5 * s, 0.45 * s, 0.36);
-        R.draw(creatureMesh(id, P.shiny), mat([x, y + hop, 0], [yaw, 0, 0], [s * (1 - bob * 0.015), s * (1 + bob * 0.03), s * (1 - bob * 0.015)]), {});
+        drawMon(R, id, P.shiny, mat([x, y + hop, 0], [yaw, 0, 0], [s * (1 - bob * 0.015), s * (1 + bob * 0.03), s * (1 - bob * 0.015)]), {}, { t, action: hop ? 'attack' : 'idle', phase: ph, where: 'showcase' });
         if (P.shiny) {                 // scintille che girano attorno agli shiny
           for (let k = 0; k < 4; k++) {
             const a = t * 1.3 + k * 1.57 + ph, pulse = Math.max(0, Math.sin(t * 3 + k * 2));
@@ -1357,6 +1370,9 @@ void main() {
   }
   const limbMesh = (key, col, w, len) => mesh(key, () => new Builder(3).add(box(), mat([0, -len / 2, 0], null, [w, len, w]), hex(col)));
   function drawTrainer(R, lookName, pos, yaw, walk, moving, scale) {
+    if (HOOKS.trainer) {
+      try { if (HOOKS.trainer(R, LOOKS[lookName] ? lookName : 'hero', pos, yaw, walk, moving, scale || 1.25, S.scene ? S.scene.clock : 0)) return; } catch (e) { HOOKS.error = String(e && e.stack || e); }
+    }
     const L = LOOKS[lookName] || LOOKS.hero;
     const sw = moving ? Math.sin(walk) : 0;
     const bobY = moving ? Math.abs(Math.sin(walk)) * 0.04 : 0;
@@ -1479,7 +1495,7 @@ void main() {
         const fw = sc.fwalk || 0, hop = Math.abs(Math.sin(fw)) * 0.05, fg = gy(sc.fpos);
         const fy = L.ghost ? 0.18 + Math.sin(t * 1.8) * 0.05 : hop;
         softShadow(R, sc.fpos[0], fg + 0.012, sc.fpos[2], 0.24 * L.scale, 0.2 * L.scale, 0.3);
-        R.draw(creatureMesh(sc.follower, sc.followerShiny), mat([sc.fpos[0], fg + fy, sc.fpos[2]], [sc.fyaw, 0, 0], s), {});
+        drawMon(R, sc.follower, sc.followerShiny, mat([sc.fpos[0], fg + fy, sc.fpos[2]], [sc.fyaw, 0, 0], s), {}, { t, action: Math.hypot(sc.fpos[0] - sc.ftarget[0], sc.fpos[2] - sc.ftarget[2]) > 0.02 ? 'walk' : 'idle', phase: fw, where: 'map' });
       }
       // creature selvatiche, abitanti, oggetti
       const pm = particleMesh();
@@ -1509,7 +1525,7 @@ void main() {
         const hop = e.moving > 0 ? Math.abs(Math.sin(e.walk)) * 0.12 : Math.max(0, Math.sin(t * 2.6 + e.x * 3)) * 0.03;
         const fy = L.ghost ? 0.25 + Math.sin(t * 1.8 + e.x) * 0.07 : hop;
         softShadow(R, e.pos[0], g0 + 0.012, e.pos[2], 0.26 * L.scale, 0.22 * L.scale, 0.3);
-        R.draw(creatureMesh(e.id, e.shiny), mat([e.pos[0], g0 + fy, e.pos[2]], [e.yaw + Math.sin(t * 0.9 + e.x) * 0.3, 0, 0], s), {});
+        drawMon(R, e.id, e.shiny, mat([e.pos[0], g0 + fy, e.pos[2]], [e.yaw + Math.sin(t * 0.9 + e.x) * 0.3, 0, 0], s), {}, { t, action: e.moving > 0 ? 'walk' : 'idle', phase: e.walk || e.x, where: 'map' });
         if (e.shiny) {          // luccichio periodico degli shiny
           const ph = (t * 0.55 + e.x * 0.37 + e.y * 0.21) % 1;
           if (ph < 0.3) for (let k = 0; k < 3; k++) {
@@ -1587,5 +1603,8 @@ void main() {
     get stats() { return { frames: S.frames, tris: S.R ? S.R.tris : 0, error: S.error || null, cached: S.cache.size, fps: Math.round(Q.fps), quality: Q.level }; },
     set speed(v) { S.speed = v; }, get speed() { return S.speed; },
     _internal: { buildCreature, buildArena, buildWorld, mat, mmul },
+    // attrezzi per game/models.js (modelli e animazioni dei personaggi e delle creature)
+    kit: { Builder, V, mat, mmul, xf, hex, shade, mix, ico, cone, cyl, box, prism, disc, mesh, speciesLook, parseMon, LOOKS, softShadow, WHITE, BLACK, easeOutBack, clamp01, buildCreature, buildTrainer, hooks: HOOKS },
+    hooks: HOOKS,
   };
 })(typeof self !== 'undefined' ? self : this);

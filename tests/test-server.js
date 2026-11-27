@@ -94,6 +94,35 @@ while (s6.status === 'playing' && g6++ < 200) {
 check('6 contro 6: partita completa', s6.status === 'ended', s6.turn + ' turni');
 check('6 contro 6: stanza sempre sotto 9 KB', max6 < 9216, max6 + ' byte al massimo');
 
+// Regole avanzate sul server: talenti, carattere, rare
+const shinyTeam = E.teamSnapshot([E.createMonster('ombrino', 20, 'sh1', { shiny: true, talents: [15, 3, 9, 12], nature: 'vivace' })]);
+const cs = call({ action: 'create', name: 'Rara', team: JSON.stringify(shinyTeam) });
+check('Squadra con una rara (shiny) accettata', cs.ok === true, cs.error);
+const stored = JSON.parse(store.get('room_' + cs.code)).players[0].team[0];
+check('Il server conserva rara, talenti e carattere', stored.shiny === true && stored.talents.join() === '15,3,9,12' && stored.nature === 'vivace' && stored.status === null);
+const cheatT = E.clone(shinyTeam); cheatT[0].talents = [15, 15, 15, 15];
+check('Talenti falsi rifiutati dal server', /Statistiche/.test(call({ action: 'create', name: 'Furbo', team: JSON.stringify(cheatT) }).error || ''));
+const cheat2 = E.clone(shinyTeam); cheat2[0].talents = [16, 0, 0, 0];
+check('Talenti fuori scala rifiutati dal server', /Talenti/.test(call({ action: 'create', name: 'Furbo', team: JSON.stringify(cheat2) }).error || ''));
+const oldTeam = [{ species: 'goccino', level: 10, moves: ['botta', 'spruzzo'], ...E.statsFor('goccino', 10) }];
+oldTeam[0].hp = oldTeam[0].maxhp;
+check('Squadra di un salvataggio vecchio (senza campi nuovi) accettata', call({ action: 'create', name: 'Vecchio', team: JSON.stringify(oldTeam) }).ok === true);
+// 6v6 con stati e mosse nuove, tutte rare: sotto 9 KB
+const sixS = (p) => E.teamSnapshot(['silvatron', 'vulkarn', 'abissaro', 'fulmix', 'granitor', 'spettrax'].map((sp, i) => E.createMonster(sp, 40, p + 'long-uid-' + i, { shiny: true })));
+const c7 = call({ action: 'create', name: 'Stati', team: JSON.stringify(sixS('s')) });
+let s7 = call({ action: 'join', code: c7.code, name: 'Stati2', team: JSON.stringify(sixS('t')) }), max7 = 0, seenStatus = false;
+for (let t = 0; t < 400 && s7.status === 'playing'; t++) {
+  const room7 = JSON.parse(store.get('room_' + c7.code));
+  for (const side of [0, 1]) {
+    const act = E.aiChoose(room7.battle, side, t * 13 + side, 'esperto');
+    s7 = call({ action: 'move', code: c7.code, side, turn: room7.battle.turn + 1, act: JSON.stringify(act) });
+  }
+  const raw7 = store.get('room_' + c7.code); max7 = Math.max(max7, raw7.length);
+  if (/"t":"status"/.test(raw7)) seenStatus = true;
+}
+check('6 contro 6 con stati e IA esperta: partita completa', s7.status === 'ended', s7.turn + ' turni');
+check('6 contro 6 con stati: stanza sempre sotto 9 KB', max7 < 9216, max7 + ' byte al massimo, stati visti: ' + seenStatus);
+
 // Abbandono
 const c2 = call({ action: 'create', name: 'Anna', team: JSON.stringify(teamA) });
 call({ action: 'join', code: c2.code, name: 'Marco', team: JSON.stringify(teamB) });

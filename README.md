@@ -25,6 +25,24 @@ Creature, nomi, disegni e regole sono **originali FMLAB**: nessun dato, modello 
 - **Come un'app**: su iPhone, Safari → Condividi → «Aggiungi alla schermata Home» apre il gioco senza barre, con l'icona FMLAB. Su Android c'è anche il tasto ⛶ per lo schermo intero.
 - Una sola tela WebGL condivisa fra le schermate. Senza WebGL (o con `?2d` nell'indirizzo) il gioco usa i disegni 2D.
 
+## Regole di lotta
+
+- **Talenti**: ogni creatura nasce con 4 talenti da 0 a 15 (PS, Attacco, Difesa, Velocità). 8 è la media; al livello 50 un talento da 15 vale circa +7 punti, uno da 0 circa -8.
+- **Carattere**: 10 caratteri. Sei alzano una statistica del 10% e ne abbassano un'altra del 10% (Audace, Tenace, Calmo, Prudente, Svelto, Vivace); quattro sono neutri (Docile, Serio, Tranquillo, Allegro).
+- **Rare** (shiny): 1 creatura su 512 nasce con colori rari. Stesse statistiche, si vede solo l'aspetto.
+- **Stati**:
+  - Bruciatura: attacco dimezzato, -1/16 di PS a fine turno; il tipo Fuoco ne è immune.
+  - Veleno: -1/8 di PS a fine turno.
+  - Paralisi: velocità dimezzata, 1 volta su 4 non si muove; il tipo Elettro ne è immune.
+  - Sonno: da 1 a 3 turni fermo, poi si sveglia e agisce subito.
+  - Le creature addormentate sono il doppio più facili da catturare, quelle con gli altri stati 1,5 volte.
+- **Mosse nuove**: 12, tra cui le mosse di stato (Ustione, Ronzio, Polline, Ninnananna), quelle che danneggiano con una probabilità di causare uno stato (Fiammella, Corrente, Spine, Fiele) e quelle con priorità, che partono per prime (Guizzo, Lampo, Getto Rapido, Scheggia).
+- **IA degli avversari** su 3 livelli:
+  - Facile: sceglie a caso.
+  - Normale: usa la mossa più forte sul tipo.
+  - Esperto: calcola il danno vero, finisce l'avversario con la mossa più sicura, usa gli stati quando conviene e cambia creatura se è svantaggiata. Nei test vince il 90% delle lotte contro la Facile.
+- I salvataggi vecchi restano validi: una creatura senza talenti conta come talenti 8 e carattere neutro, con statistiche identiche a prima.
+
 ## Struttura
 
 ```
@@ -61,6 +79,8 @@ poi apri `http://localhost:8765/game/index.html`. Senza URL del server le sfide 
 Le stanze vivono nelle proprietà dello script (niente fogli Google da preparare) e si cancellano da sole dopo 24 ore. La funzione `azzeraTutto` nell'editor azzera stanze e classifica.
 
 ## Anti-imbroglio
+
+Il server controlla anche talenti (interi 0–15), carattere e rarità: statistiche che non tornano con talenti e carattere vengono rifiutate.
 
 - Il **server risolve ogni turno** con lo stesso motore del gioco: i telefoni mandano solo la mossa scelta.
 - Le squadre ricevute vengono **controllate** (statistiche coerenti col livello, mosse davvero imparate, creature esistenti) e in sfida partono tutte a vita piena.
